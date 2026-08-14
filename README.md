@@ -9,7 +9,7 @@ Drive it from BASIC with `POKE`.
 <img src="images/card-running.jpg" width="360" align="right">
 
 ```basic
-10 DR = -16192
+10 DR = -16192 : REM SLOT 4
 20 T$ = "HELLO FROM DECTALK"
 30 FOR I = 1 TO LEN(T$): POKE DR,ASC(MID$(T$,I,1)): NEXT I
 40 POKE DR,13
@@ -17,6 +17,26 @@ Drive it from BASIC with `POKE`.
 
 That is the entire interface. Bytes written to the card's slot window are
 queued as text; a carriage return speaks the line.
+
+### Any slot works
+
+The card decodes no address lines. It relies entirely on `/DEVSEL`, which the
+motherboard asserts for whichever slot the card is in, so it works in **any slot
+from 1 to 7** with no jumpers and no firmware change. Only the `DR` constant in
+BASIC changes:
+
+| Slot | Address | `DR` | | Slot | Address | `DR` |
+|---:|---:|---:|---|---:|---:|---:|
+| 1 | `$C090` | `-16240` | | 5 | `$C0D0` | `-16176` |
+| 2 | `$C0A0` | `-16224` | | 6 | `$C0E0` | `-16160` |
+| 3 | `$C0B0` | `-16208` | | 7 | `$C0F0` | `-16144` |
+| 4 | `$C0C0` | `-16192` | | | | |
+
+The window is `$C080 + 16 × slot`. A0-A3 are intentionally not decoded, so all
+16 addresses in it are mirrors of the same write-only register.
+
+On an Apple II+ note that slot 0 holds the Language Card and slot 6 is almost
+certainly your Disk II, so 2, 4 or 5 are the practical choices.
 
 **Status: working on real hardware.** The PWM build has been verified end to
 end in an Apple IIe. The card pictured is a hand-wired prototyping board — a
@@ -142,6 +162,44 @@ MIDI note *n*+35, so n=10 is A2 at 110 Hz if you want to transpose it.
 fallbacks, and speaks every reply. It reads input with `GET` rather than
 `INPUT`, because `INPUT` splits on commas and prints `EXTRA IGNORED` the moment
 anyone types one.
+
+### Changing the slot
+
+**Every demo program ships set to slot 4.** Each one sets `DR` on exactly one
+line, so switching slots is a one-line edit — no other change is needed
+anywhere:
+
+| Program | Line to change |
+|---|---|
+| `DAISY.bas` | `30 DR = -16192: REM SLOT 4  ($C0C0)` |
+| `ELIZA.bas` | `30 DR = -16192: REM SLOT 4  ($C0C0)` |
+| `SPEAK.bas`, `APPLESPEECH.bas`, `PERFPAUL.bas` | `10 DR = -16192` |
+
+Substitute the value for your slot from the [table above](#any-slot-works). For
+a card in slot 5, for instance:
+
+```basic
+]LOAD ELIZA
+]30 DR = -16176: REM SLOT 5  ($C0D0)
+]SAVE ELIZA
+]RUN
+```
+
+If you would rather not edit anything, compute it at run time from a slot
+number — `$C080` is `-16256`, and each slot is 16 bytes further on:
+
+```basic
+10 S = 5 : DR = -16256 + 16 * S
+```
+
+That form is worth using in your own programs, since it makes the slot a single
+obvious constant at the top rather than a magic negative number.
+
+### Nothing to change in the firmware
+
+Slot selection is *only* a BASIC concern. The card decodes no address lines, so
+the same `.uf2` runs unmodified in any slot — there is no build option, jumper,
+or constant to set. Moving the card between slots needs no reflash.
 
 ### Inline command gotcha
 
