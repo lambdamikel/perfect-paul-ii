@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "pico-i2s-release",
+      "displayName": "Pico + Apple II + I2S (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/i2s-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PICO_BOARD": "pico",
+        "DECTALK_AUDIO_I2S": "ON"
+      }
+    },
+    {
+      "name": "pico-pwm-release",
+      "displayName": "Pico + Apple II + PWM (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/pwm-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PICO_BOARD": "pico",
+        "DECTALK_AUDIO_I2S": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "pico-i2s-release",
+      "configurePreset": "pico-i2s-release"
+    },
+    {
+      "name": "pico-pwm-release",
+      "configurePreset": "pico-pwm-release"
+    }
+  ]
+}

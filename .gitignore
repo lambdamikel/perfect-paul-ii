@@ -1,0 +1,8 @@
+build/
+*.uf2
+*.elf
+*.bin
+*.hex
+*.dsk
+*.po
+*.2mg

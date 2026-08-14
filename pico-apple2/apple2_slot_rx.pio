@@ -1,0 +1,31 @@
+; SPDX-License-Identifier: MIT
+;
+; Capture one byte from an Apple II slot write cycle.
+;
+; Pin mapping expected by the C setup:
+;   IN base + 0 .. 7 : D0 .. D7 from the 74LVC245, driven directly at 3.3 V
+;   IN base + 8      : /WRSEL, low only for a selected write cycle
+;   JMP pin          : same /WRSEL pin
+;
+; The loop continually keeps the most recent data sample while /WRSEL is low.
+; When /WRSEL rises, it pushes the last sample taken while /WRSEL was still
+; low. The 74LVC245 remains enabled in the fixed
+; Apple-to-Pico direction. This avoids depending on a fixed bus timing delay,
+; which is what makes the buffer family a free choice: LVC's ~5 ns propagation
+; and unresistored edges simply widen a margin the protocol never relied on.
+
+.program apple2_slot_rx
+.wrap_target
+    wait 0 pin 8           ; wait for a selected write
+    mov  y, null           ; deterministic fallback for an impossibly short pulse
+sample_while_selected:
+    jmp  pin selected_done ; do not begin a sample after /WRSEL rises
+    mov  isr, null
+    in   pins, 8
+    jmp  pin selected_done ; discard this sample if /WRSEL rose during it
+    mov  y, isr            ; retain newest sample wholly inside the low pulse
+    jmp  sample_while_selected
+selected_done:
+    mov  isr, y
+    push noblock           ; core 0 drains the joined 8-word RX FIFO
+.wrap
