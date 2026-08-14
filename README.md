@@ -6,7 +6,21 @@ Pico. Named for DECtalk's default voice, `[:np]`.
 It speaks plain text, sings in DECtalk's phoneme mode, and holds a conversation.
 Drive it from BASIC with `POKE`.
 
-<img src="images/card-running.jpg" width="360" align="right">
+![Perfect Paul ][ installed in an Apple IIe](images/card-in-slot.jpg)
+
+**Status: working on real hardware.** The PWM build has been verified end to
+end in an Apple IIe. The card pictured is a hand-wired prototyping board — the
+PCB is still work in progress and will be added here once it has been
+fabricated and tested. The I2S build compiles but has not yet been run.
+
+## Watch it
+
+[![Perfect Paul II - A New Speech Synthesizer For The Apple II](https://i.ytimg.com/vi/u6aQdsFBBXw/hqdefault.jpg)](https://youtu.be/u6aQdsFBBXw)
+
+**[Perfect Paul II - A New Speech Synthesizer For The Apple II](https://youtu.be/u6aQdsFBBXw)**
+— the card talking, singing *Daisy Bell*, and running ELIZA on real hardware.
+
+## Talking to it
 
 ```basic
 10 DR = -16192 : REM SLOT 4
@@ -38,13 +52,6 @@ The window is `$C080 + 16 × slot`. A0-A3 are intentionally not decoded, so all
 On an Apple II+ note that slot 0 holds the Language Card and slot 6 is almost
 certainly your Disk II, so 2, 4 or 5 are the practical choices.
 
-**Status: working on real hardware.** The PWM build has been verified end to
-end in an Apple IIe. The card pictured is a hand-wired prototyping board — a
-PCB is in progress and will be added here when it is done. The I2S build
-compiles but has not yet been run.
-
-<br clear="right">
-
 ## How it works
 
 Core 0 receives bytes from an Apple II slot write cycle using RP2040 PIO. Core 1
@@ -74,11 +81,28 @@ pin-by-pin wiring, power, and PCB notes.
 
 ## The card
 
-| | |
-|---|---|
-| ![component side](images/card-component-side.jpg) | Component side. Left to right: speaker, PAM8403 class-D amplifier, Raspberry Pi Pico, and the two SOIC-to-DIP breakouts carrying the `74LVC245AD` (SO20, wide body) and `74LVC32AD` (SO14, narrow body). The two axial resistors are the PWM reconstruction filter. |
-| ![solder side](images/card-solder-side.jpg) | Solder side, showing the slot edge-connector wiring. Note the data pins run backwards: D7 is slot pin 42, D0 is slot pin 49. |
-| ![in slot](images/card-in-slot.jpg) | Installed in an Apple IIe. |
+> **The PCB is still to come.** Everything shown and documented here is a
+> hand-wired prototype on perfboard. Board files are work in progress and will
+> be added to this repository once the first PCB has been fabricated and
+> tested. Layout notes are already in
+> [pico-apple2/HARDWARE-74LVC.md](pico-apple2/HARDWARE-74LVC.md).
+
+**Component side.** Left to right: speaker, PAM8403 class-D amplifier module,
+Raspberry Pi Pico, and the two SOIC-to-DIP breakouts carrying the `74LVC245AD`
+(SO20, wide body) and `74LVC32AD` (SO14, narrow body) — note they are different
+package widths. The two axial resistors are the audio attenuator.
+
+![component side](images/card-component-side.jpg)
+
+**Solder side.** Slot edge-connector wiring. The data pins run backwards: D7 is
+slot pin 42, D0 is slot pin 49, which is an easy and silent mistake to make.
+
+![solder side](images/card-solder-side.jpg)
+
+**Running.** The screen is the banner from `PERFPAUL.bas`, and the speaker is
+on the card itself.
+
+<img src="images/card-running.jpg" width="300">
 
 ## Build
 
@@ -115,10 +139,29 @@ about 25 KB, not about 424 KB.
 
 ## Audio
 
-**PWM** is the verified path: GP28 through a passive filter into an amplified
-input. DECtalk here is an 11025 Hz stream with nothing above 5.5 kHz, while
-`pico_audio_pwm` carries a ~353 kHz 1-bit carrier, so filter hard — two poles
-near 7 kHz cost nothing and beat a single pole at 16 kHz by more than 25 dB:
+**PWM** is the verified path: GP28 into an amplified input.
+
+### What the prototype actually uses
+
+The card in the photographs uses **2 × 100 kΩ in series and no capacitors at
+all**, straight into a PAM8403 module. It sounds fine, and it is the
+configuration everything in `VALIDATION.md` was verified with — so it is
+documented here honestly rather than quietly replaced by the better circuit
+below.
+
+Be clear about what it is, though: 200 kΩ alone is a **voltage divider, not a
+filter**. It works against the PAM8403's input impedance to bring the Pico's
+3.3 V logic swing down to roughly line level, which is necessary — but it
+attenuates the carrier and the speech by the same ratio, so it does not improve
+the carrier-to-signal ratio at all. What actually keeps the ultrasonic content
+inaudible is that the speaker cone cannot move at 353 kHz, plus the amplifier's
+finite bandwidth. The energy is still there; it just never becomes sound.
+
+### What the PCB will use
+
+DECtalk here is an 11025 Hz stream with nothing above 5.5 kHz, while
+`pico_audio_pwm` carries a ~353 kHz 1-bit carrier. That gap is enormous, so
+filtering hard costs nothing. Two poles near 7 kHz:
 
 ```
 GP28 --[1k]--+--[1k]--+--||--> amplifier input
@@ -128,8 +171,18 @@ GP28 --[1k]--+--[1k]--+--||--> amplifier input
             GND      GND
 ```
 
-This matters most with a class-D amplifier like the PAM8403, which switches at a
-few hundred kHz itself and will intermodulate with any surviving carrier.
+That beats a single pole at 16 kHz by more than 25 dB on the carrier, and its
+much lower source impedance is far less prone to picking up hum and digital
+hash inside a computer than a 200 kΩ node is.
+
+It matters most with a class-D amplifier like the PAM8403, which switches at a
+few hundred kHz itself and will intermodulate with any surviving carrier, and
+for EMI — unfiltered ultrasonic energy leaving on speaker leads next to
+composite video is a plausible source of interference patterns on screen.
+
+If you have already built the resistor-only version, one capacitor upgrades it
+in place: 220 pF from the junction between the two 100 kΩ resistors to ground
+puts a real pole at about 7 kHz without rewiring anything.
 
 **I2S** (GP20/21/22) is the better end state and needs no code change — a
 MAX98357A drives a speaker directly, a PCM5102 gives line out with negligible
@@ -242,10 +295,15 @@ Verified on hardware: the 74LVC interface, the PIO capture protocol, the
 core-0/core-1 split under real traffic, plain text, singing, and interactive
 use.
 
-Not yet verified: the I2S path, any PCB, long-run stability, slot current under
-sustained use, and any machine other than the one tested. The five slot signals
-used (D0-D7, `R/W`, `/DEVSEL`, +5 V, GND) are common to the II, II+ and IIe, so
-the design should be model-independent, but only one machine has run it.
+Not yet verified: the I2S path, long-run stability, slot current under sustained
+use, and any machine other than the one tested. The five slot signals used
+(D0-D7, `R/W`, `/DEVSEL`, +5 V, GND) are common to the II, II+ and IIe, so the
+design should be model-independent, but only one machine has run it.
+
+**No PCB exists yet.** The design has only ever run as a hand-wired prototype,
+so nothing here has been validated in copper — in particular the signal-integrity
+reasoning in the hardware notes is reasoned, not measured. Board files are work
+in progress.
 
 There is no hardware flow control. PIO captures each selected write into an
 eight-word FIFO, which is ample for `POKE` traffic; a tightly optimised 6502
