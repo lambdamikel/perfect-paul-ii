@@ -6,7 +6,7 @@ Pico. Named for DECtalk's default voice, `[:np]`.
 It speaks plain text, sings in DECtalk's phoneme mode, and holds a conversation.
 Drive it from BASIC with `POKE`.
 
-![Perfect Paul ][ installed in an Apple IIe](images/card-in-slot.jpg)
+![Perfect Paul II installed in an Apple IIe](images/card-in-slot.jpg)
 
 **Status: working on real hardware.** The PWM build has been verified end to
 end in an Apple IIe. The card pictured is a hand-wired prototyping board — the
