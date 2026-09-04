@@ -30,6 +30,7 @@ awaiting fabrication.
   - [Packages, and finding pin 1](#packages-and-finding-pin-1)
   - [Pico connections](#pico-connections)
   - [Power wiring](#power-wiring)
+  - [The reservoir capacitor on the 5 V rail](#the-reservoir-capacitor-on-the-5-v-rail)
   - [Bill of materials for the bus interface](#bill-of-materials-for-the-bus-interface)
   - [Revision 2 designators](#revision-2-designators)
   - [Connectors](#connectors)
@@ -49,7 +50,6 @@ awaiting fabrication.
 - [First power-up checks](#first-power-up-checks)
 - [Board revisions](#board-revisions)
   - [Fixed in revision 2](#fixed-in-revision-2)
-  - [Before fabricating revision 2](#before-fabricating-revision-2)
   - [Still open for a third revision](#still-open-for-a-third-revision)
   - [Layout notes, unchanged](#layout-notes-unchanged)
 - [Licensing](#licensing)
@@ -521,10 +521,35 @@ budget.
 the 74LS revision and matters more now that `3V3_OUT` is a distributed rail on
 the card rather than an unused pin.
 
-Place a reservoir capacitor from `CARD_5V` to ground near the amplifier
-headers.
-**Revision 2's schematic does not have any** - see "Before fabricating revision
-2" below. Keep speaker current modest when it is drawn from the Apple slot.
+### The reservoir capacitor on the 5 V rail
+
+Revision 2 fits `C7`, 10 uF, and `C8`, 100 nF, from `CARD_5V` to ground beside
+`J2` and `J4` - close to what draws the current, not to what supplies it.
+Revision 1 had no capacitor on that rail at all.
+
+These are not the same thing as the 100 nF parts at each logic IC. Those are
+*decoupling*: small, fast, absorbing the brief spikes a chip makes when its
+outputs switch. An electrolytic is a *reservoir*, sometimes called bulk
+capacitance: slower to respond but able to store real charge, covering a
+sustained gulp of current. The two cover different speeds, which is why both are
+fitted in parallel - the electrolytic holds plenty but reacts sluggishly, the
+ceramic reacts instantly but holds almost nothing.
+
+Think of the rail as a pipe and the amplifier as a tap. `D1` and the trace are
+in that pipe, so a sudden demand cannot be met instantly from the far end and
+the pressure at the tap dips; a reservoir beside the tap covers it. Without one
+the rail sags on loud passages: intermodulation at best, a brownout at worst.
+
+**On the value**, 10 uF is enough here, and the division of labour is the reason.
+`C8`, the ceramic, does the work at the amplifier's few-hundred-kHz switching
+frequency, where an electrolytic's internal resistance makes it nearly useless
+anyway. Sustained current is a DC question answered by `D1` and the trace, not
+by any capacitor - a half-amp swing costs roughly 150 mV across the diode
+whatever is fitted, which is nothing on a 4.65 V rail. `C7` covers the range
+between. A larger part adds margin if the board has room, but it is not a
+correction: both amplifier modules also carry their own local capacitance.
+
+Keep speaker current modest when it is drawn from the Apple slot.
 
 **Everything the card powers belongs on the cathode side.** That is the whole
 point of D1, and it is easy to get backwards: the anode is upstream, on the
@@ -1076,33 +1101,7 @@ been built or tested, and the Gerbers will be published here once it has been.
 | `RV1` 20 kOhm, matching the fitted part | schematic said 50 kOhm |
 | `U1`/`U2` valued `74LVC32` / `74LVC245` | valued as 74LS parts |
 | `C4`, `C5`, `C6` valued 100 nF | unset |
-
-### Before fabricating revision 2
-
-- **Put a reservoir capacitor on `VCC`.** The card's 5 V rail currently has no
-  capacitor on it at all: `VCC` reaches only `A1.39`, `D1.1`, `J2.7`, `J4.6`,
-  `R6.2` and `R7.2`. Add a **100 uF electrolytic and a 100 nF ceramic** from
-  `VCC` to GND, beside `J2` and `J4` rather than beside `D1` - close to what
-  draws the current, not to what supplies it.
-
-  This is different from the 100 nF parts at each logic IC. Those are
-  *decoupling*: small, fast, and there to absorb the brief spikes a chip makes
-  when its outputs switch. A large electrolytic is *bulk*, or reservoir,
-  capacitance: slow to respond but able to store real charge, and there to cover
-  a sustained gulp of current. The two cover different speeds, so both go in
-  parallel - the electrolytic holds plenty but reacts sluggishly, the ceramic
-  reacts instantly but holds almost nothing.
-
-  Think of the rail as a water pipe and the amplifier as a tap. `D1` and the
-  trace are now in that pipe. When a loud passage demands a sudden gulp, the
-  pipe cannot deliver fast enough and the pressure at the tap drops; a reservoir
-  beside the tap covers the gulp and refills between them. **Fitting `D1` is
-  precisely what makes this matter**, since it put a component in the pipe.
-
-  Without it the rail sags on loud passages: intermodulation at best, a Pico
-  brownout at worst. Both breakout modules carry some of their own, and DECtalk
-  speech is not a bass-heavy load, so it may never bite. It is a few cents of
-  insurance in the place that just gained a series diode.
+| `C7` 10 uF + `C8` 100 nF on the 5 V rail at the amplifier headers | no capacitor on that rail at all |
 
 ### Still open for a third revision
 
