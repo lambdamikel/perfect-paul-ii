@@ -24,8 +24,11 @@
   leaving them scattered.
 - **Retired the 74LS interface.** 74LVC is now the only supported build, and
   `HARDWARE-74LS.md` has been removed - it is still in git history. The
-  comparative notes in `HARDWARE-74LVC.md` are kept, since they are what explain
-  why the current design has no series resistors anywhere.
+  comparative notes in the hardware reference are kept, since they are what
+  explain why the current design has no series resistors anywhere.
+- Consolidated `HARDWARE-74LVC.md` into the repository README and removed it.
+  The bus interface, the audio stage and the PCB notes had been described in up
+  to three places, and only some copies were being kept current.
 - **The card now says "Perfect Paul Two ready." on power-up**, with "perfect"
   spelled phonemically as `[prrfihkt]`. The word is absent from
   `dic/dtalk_us.dic`, so it fell through to the letter-to-sound rules and was

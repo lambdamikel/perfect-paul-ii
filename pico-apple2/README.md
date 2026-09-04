@@ -26,9 +26,10 @@ This revision uses 3.3 V LVC logic as a proper level translator:
 - two 10 kOhm pull-ups on the strobe gate's Apple-side inputs
 - **no series resistors anywhere**
 
-See `HARDWARE-74LVC.md` for the complete pin-by-pin wiring and power diagram.
-The earlier 5 V 74LS interface is retired and no longer documented; 74LVC is the
-only supported build.
+The complete pin-by-pin wiring, power diagram and PCB notes live in the
+**Hardware reference** section of the repository README, at
+<https://github.com/lambdamikel/perfect-paul-ii>. The earlier 5 V 74LS interface
+is retired and no longer documented; 74LVC is the only supported build.
 
 ## Important electrical point
 
