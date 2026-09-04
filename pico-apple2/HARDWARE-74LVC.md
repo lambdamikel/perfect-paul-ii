@@ -378,7 +378,7 @@ GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
 |---|---|---|
 | R3, R4 | 1 kOhm | Series elements of a two-pole RC low-pass |
 | C1, C2 | 22 nF | Shunt legs. Each section corners at 1/(2*pi*1k*22n) = 7.2 kHz |
-| C3 | 10 uF | DC block between the filter and the volume trimmer. **Fit 1 uF non-polarised film instead** - see below |
+| C3 | 10 uF | DC block between the filter and the volume trimmer. **Fit a non-polarised part** - value is not critical, see below |
 | RV1 | 20 kOhm | Volume trimmer, wiper to the PAM8403 input |
 
 DECtalk here is an 11025 Hz stream with no content above 5.5 kHz, while
@@ -417,14 +417,29 @@ not: the pot shorts that end to ground, and the bias is entirely upstream.
 ### Better: do not use a polarised part here at all
 
 The bias is only 1.65 V and the audio swings around it, so this is a marginal
-application for an electrolytic even when oriented correctly. `C3` with `RV1`
-gives a high-pass corner of 1/(2*pi*10u*20k) = 0.8 Hz, which is about four
-octaves lower than anything needed - DECtalk has no content below roughly 80 Hz.
+application for an electrolytic even when oriented correctly. **Fit a
+non-polarised part and the question disappears** rather than having to be
+documented.
 
-Dropping to **1 uF** puts the corner at 8 Hz, still far below the speech band,
-and 1 uF is readily available as a non-polarised film part. That removes the
-polarity question permanently rather than documenting it. Fit that in preference
-to a correctly-oriented electrolytic.
+The value is not critical, and 10 uF was never the problem here - the polarity
+was. `C3` works against `RV1`'s 20 kOhm as a high-pass, and every plausible
+value sits far below DECtalk's roughly 80 Hz floor:
+
+| `C3` | Corner into `RV1` |
+|---|---|
+| 1 uF | 8.0 Hz |
+| 4.7 uF | 1.7 Hz |
+| 10 uF | 0.8 Hz |
+
+Use whatever non-polarised part is to hand. Smaller values are easier to find in
+film; larger ones are usually bipolar electrolytics, which are equally fine here
+because the cap operates far above its corner and therefore has almost no signal
+voltage across it to distort.
+
+The only mild consequence of a larger value is settling time at power-up: the
+cap charges through roughly `R3 + R4 + RV1`, so 4.7 uF takes about 0.1 s per
+time constant and half a second to settle. That is over long before DECtalk has
+finished initialising and spoken its ready message.
 
 ## Selecting between the PAM and the MAX98357A outputs
 
@@ -492,12 +507,12 @@ next revision - a few things are worth designing in rather than discovering:
   9 dB floating default.
 - **Select the speaker between the two amplifiers with a two-pole switch.** See
   the section on that below - the `-` outputs must be switched too.
-- **Replace `C3` with 1 uF non-polarised film.** As netlisted the 10 uF
-  electrolytic sits reverse biased by about 1.65 V, because the bias in this
-  circuit is upstream rather than downstream. 1 uF still gives an 8 Hz corner
-  into `RV1`, four octaves below anything DECtalk produces, and a non-polarised
-  part removes the question permanently rather than documenting it. See the
-  audio output stage section above for the derivation.
+- **Make `C3` non-polarised.** As netlisted the 10 uF electrolytic sits reverse
+  biased by about 1.65 V, because the bias in this circuit is upstream rather
+  than downstream. The value is not critical - anything from 1 uF up puts the
+  corner far below DECtalk's roughly 80 Hz floor - so fit whatever non-polarised
+  part is available and the polarity question disappears. See the audio output
+  stage section above for the derivation.
 - **Fit series termination footprints on all nine bus signals** and populate
   them with 0 Ohm links. LVC switches in 1-2 ns, and reflections start to
   matter beyond roughly 5 cm of unterminated trace. On a compact card you will
