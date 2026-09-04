@@ -401,14 +401,31 @@ and the card reboots and speaks its ready message again. That is the whole
 circuit:
 
 ```
-Pico RUN (pin 30) ----o  o---- GND
-                    momentary
+Pico RUN (pin 30) --+----o  o----+-- GND
+                    |  momentary |
+                    +-----| |----+
+                          100nF
 ```
 
 `RUN` has an internal pull-up of about 50 kOhm, so no external pull-up is
-needed. A 100 nF capacitor from `RUN` to GND is the usual optional addition; it
-debounces the switch and is worth having on a board that lives inside a machine
-full of switching noise.
+needed.
+
+The optional 100 nF debounce capacitor goes **in parallel with the button**,
+which is the same connection as "`RUN` to GND" — the button's far leg is already
+at ground, so both descriptions name one identical node. It is **not** in series
+with the button. A series capacitor would block DC, so pressing the button would
+pass only a brief charging transient: `RUN` would dip and immediately return
+high through the internal pull-up rather than being held low for as long as you
+hold the button. That can even look like it works, since a short low pulse does
+trigger a reset, but the pulse width would be set by the RC rather than by you,
+and it would debounce nothing.
+
+With the internal 50 kOhm pull-up, 100 nF gives a 5 ms time constant on release,
+comfortably longer than the millisecond or so of contact bounce. Pressing the
+button discharges the cap directly through the contacts, but at 100 nF and 3.3 V
+that is well under a microjoule and harms nothing. Stay in the nF range: `RUN`
+has to rise before the RP2040 leaves reset at power-on, so a microfarad-scale
+part there just delays every boot.
 
 Two things make this worth fitting:
 
@@ -964,7 +981,8 @@ The notes below were written against that hand-wired card and are kept for the
 next revision - a few things are worth designing in rather than discovering:
 
 - **Fit the reset button.** `RUN` (pin 30) to GND through a momentary switch,
-  optionally with 100 nF across it. See the Reset button section above. It is
+  optionally with 100 nF in parallel with the switch, not in series. See the
+  Reset button section above. It is
   absent from the first prototype, where reflashing means unplugging USB.
 - **Add `D1`.** It is specified in the power section but absent from
   `perfectpaul2.net`, so Apple +5 V currently reaches `VSYS` undioded.
