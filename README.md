@@ -33,6 +33,7 @@ announces itself out loud at power-up. A further board revision is planned.
 - [Build](#build)
   - [Talking to it from a terminal](#talking-to-it-from-a-terminal)
   - [If the build fails to link](#if-the-build-fails-to-link)
+  - [The spoken ready message](#the-spoken-ready-message)
 - [Audio](#audio)
   - [What the hand-wired prototype used](#what-the-hand-wired-prototype-used)
   - [What the PCB uses](#what-the-pcb-uses)
@@ -565,6 +566,27 @@ the RP2040's 264 KB of SRAM. This was
 August 2026. If you hit it, update DECtalkMini. Verify with
 `arm-none-eabi-size -A`: `main_dict` belongs in `.rodata`, and `.data` should be
 about 25 KB, not about 424 KB.
+
+### The spoken ready message
+
+The card says **"Perfect Paul Two ready."** when the Apple II is switched on.
+`DECTALK_SPEAK_STARTUP_BANNER` is `ON` by default; build with
+`-DDECTALK_SPEAK_STARTUP_BANNER=OFF` for a silent boot. The wording lives in
+`DECTALK_STARTUP_BANNER_TEXT` at the top of `main.c`.
+
+That string spells "perfect" phonemically, as
+`[:phone arpa speak on][prrfihkt][:phone arpa speak off]`, and **should not be
+simplified back to plain text**. `perfect` has no entry in `dic/dtalk_us.dic`,
+so it falls through to the letter-to-sound rules and is stressed as the verb,
+per-FECT — nearly every other English `-ect` word takes final stress (affect,
+collect, correct, detect). `paul`, `two` and `ready` all have dictionary
+entries and stay as ordinary text. Keep the trailing `\x0b`, which is what
+tells DECtalk to speak the buffer.
+
+It is spoken after core 1 signals readiness, so the card is already accepting
+slot writes while it announces itself. Note this is a **power-up** message, not
+a reset message: slot pin 31 (`/RES`) is not wired to the Pico's `RUN` pin, so
+Ctrl-Reset does not re-trigger it.
 
 ## Audio
 

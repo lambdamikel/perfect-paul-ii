@@ -9,14 +9,13 @@ from an Apple II slot write register using RP2040 PIO.
 
 ## Status
 
-**Working.** The PWM build has been verified end to end in a real Apple II. It
-speaks plain text, sings in DECtalk's phoneme mode, and holds an interactive
-session — see the two demo programs below. The tested card is a fabricated
+**Working.** Both the PWM and the I2S build have been verified end to end in a
+real Apple II. The card speaks plain text, sings in DECtalk's phoneme mode, and
+holds an interactive session — see the two demo programs below. The tested card is a fabricated
 prototype PCB carrying both audio backends at once; a further revision is
 planned.
 
-Both the PWM and the I2S build have been run on hardware. The **Validation
-status** section of the repository README, at
+The **Validation status** section of the repository README, at
 <https://github.com/lambdamikel/perfect-paul-ii>, records exactly what has and
 has not been verified.
 
@@ -113,6 +112,8 @@ address, clock, ROM, interrupt, or DMA lines are required.
 | I2S data | GP22 |
 | PWM audio alternative | GP28 |
 | 3.3 V supply for U2 and U3 | 3V3_OUT (pin 36) |
+| card power in, behind D1 | VSYS (pin 39) |
+| reset button to GND, optional | RUN (pin 30) |
 
 The bus PIO state machine uses PIO1. The I2S implementation uses PIO0, so the
 two functions do not contend for a state machine. Firmware disables internal
@@ -128,9 +129,9 @@ re-enabled. Debug output goes over USB CDC.
 
 ## Audio choices
 
-### Verified: PWM
+### PWM
 
-This is the path that has actually run in an Apple II. Build with the
+Build with the
 `pico-pwm-release` preset and take GP28 through a passive low-pass and AC
 coupling network into an amplified input. GP28 cannot drive an 8 Ohm speaker
 directly.
@@ -141,16 +142,26 @@ audio, while `pico_audio_pwm` carries a roughly 353 kHz 1-bit carrier
 and you lose nothing while rejecting far more carrier:
 
 ```
-GP28 --[1k]--+--[1k]--+--||--> amplifier input
-             |        |   10uF
+GP28 --[1k]--+--[1k]--+--| |--> amplifier input
+             |        |   NP
            22nF     22nF
              |        |
             GND      GND
 ```
 
 Two poles near 7 kHz put the carrier down by more than 50 dB, against roughly
-27 dB for a single 1 kOhm / 10 nF pole. Many amplifier boards already include
-input coupling capacitors, in which case omit the 10 uF.
+27 dB for a single 1 kOhm / 10 nF pole.
+
+The coupling capacitor must be **non-polarised**. The DC bias in this circuit
+sits upstream of it rather than downstream, which inverts the usual "positive
+terminal toward the amplifier input" rule — the first prototype PCB has a
+polarised part in backwards as a result. The value is not critical: anything
+from 1 uF up corners far below the speech band. Many amplifier boards already
+include input coupling capacitors, in which case omit it entirely.
+
+The values as fitted on the PCB, the derivation of that polarity, and the
+gain-switch and amplifier-selection notes are in the repository README rather
+than repeated here.
 
 Filtering this hard matters most with a **class-D** amplifier such as a
 PAM8403. Those switch at a few hundred kHz themselves, and an unfiltered
@@ -160,8 +171,8 @@ is far less sensitive to it.
 
 ### Better quality: one I2S module
 
-Verified on hardware, and the better end state. The digital-to-
-analog conversion happens inside a dedicated chip receiving clean digital data,
+The better end state, and equally verified on hardware. The digital-to-analog
+conversion happens inside a dedicated chip receiving clean digital data,
 rather than in a passive filter referenced to an Apple II ground shared with
 the whole machine's switching. The audible difference shows up mainly as hiss
 during the inter-word gaps, of which DECtalk has many.
