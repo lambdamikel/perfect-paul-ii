@@ -304,7 +304,8 @@ goes over USB CDC.
 
 ```
 Apple +5 V ---->|---- CARD_5V -----------> Pico VSYS pin 39
-               D1                          MAX98357A VIN, if used
+ (slot pin 25) D1                          MAX98357A VIN, if used
+               anode -> cathode            PAM8403 5V, if used
 
 Pico 3V3_OUT pin 36 --------------------> U2 pin 20
                                           U3 VCC
@@ -320,7 +321,11 @@ Note that the Apple's +5 V no longer reaches any logic on the card. It supplies
 only `CARD_5V` through D1, which powers the Pico via VSYS and the audio module
 if fitted. Use a Schottky such as `1N5817`: anode to Apple +5 V, cathode to
 `CARD_5V`. D1 prevents USB power applied to the Pico from feeding back into the
-Apple II +5 V rail.
+Apple II +5 V rail. Use a Schottky rather than a 1N400x: the forward drop lands
+directly on the amplifier supply, and 0.4 V costs noticeably less output power
+than 0.7 V does. Note this diode is **not** between two Pico pins - it is
+between the slot and `VSYS`. The Pico pin to keep away from is `VBUS`, pin 40;
+see "Pins to leave strictly alone" below.
 
 `3V3_OUT` is a regulator output, and the load added here is trivial — LVC static
 supply current is microamps, and switching eight channels plus a gate at Apple
@@ -373,7 +378,7 @@ GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
 |---|---|---|
 | R3, R4 | 1 kOhm | Series elements of a two-pole RC low-pass |
 | C1, C2 | 22 nF | Shunt legs. Each section corners at 1/(2*pi*1k*22n) = 7.2 kHz |
-| C3 | 10 uF | DC block between the filter and the volume trimmer |
+| C3 | 10 uF | DC block between the filter and the volume trimmer. **Fit 1 uF non-polarised film instead** - see below |
 | RV1 | 20 kOhm | Volume trimmer, wiper to the PAM8403 input |
 
 DECtalk here is an 11025 Hz stream with no content above 5.5 kHz, while
@@ -487,8 +492,12 @@ next revision - a few things are worth designing in rather than discovering:
   9 dB floating default.
 - **Select the speaker between the two amplifiers with a two-pole switch.** See
   the section on that below - the `-` outputs must be switched too.
-- **Check `C3`'s polarity**, which as netlisted sits reverse biased by about
-  1.65 V. See the audio output stage section above.
+- **Replace `C3` with 1 uF non-polarised film.** As netlisted the 10 uF
+  electrolytic sits reverse biased by about 1.65 V, because the bias in this
+  circuit is upstream rather than downstream. 1 uF still gives an 8 Hz corner
+  into `RV1`, four octaves below anything DECtalk produces, and a non-polarised
+  part removes the question permanently rather than documenting it. See the
+  audio output stage section above for the derivation.
 - **Fit series termination footprints on all nine bus signals** and populate
   them with 0 Ohm links. LVC switches in 1-2 ns, and reflections start to
   matter beyond roughly 5 cm of unterminated trace. On a compact card you will
