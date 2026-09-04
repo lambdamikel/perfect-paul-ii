@@ -386,16 +386,85 @@ lands on the order of 60 dB down. `RV1` at 20 kOhm is high enough against the
 `C3` with `RV1` forms a high-pass at 1/(2*pi*10u*20k) = 0.8 Hz, far below the
 speech band, so the 10 uF is doing DC blocking rather than shaping anything.
 
-### Check C3's polarity before the next board spin
+### C3's polarity, worked through
 
-In `perfectpaul2.net`, `C3` pad 2 sits on the filter node and pad 1 on `RV1`.
-For a KiCad `CP` footprint pad 1 is the `+` terminal. The filter node idles at
-the PWM average, about 1.65 V, while the `RV1` end is DC-grounded through the
-pot element - so **as netlisted the part is reverse biased by about 1.65 V**.
-That is small enough to survive for a long time and is easy to miss, but it
-degrades an electrolytic. Either reverse it or fit a non-polarised 10 uF. This
-was read off the netlist, not measured on the board, so verify against the
-silkscreen before changing anything.
+The `+` terminal of `C3` must face **the filter side (GP28)**, not the
+potentiometer. Deriving it from the two DC potentials, since this is easy to get
+backwards:
+
+- **Filter side.** `C1` and `C2` are capacitors, so there is no DC path from
+  that node to ground; `R3` and `R4` return it to GP28. The node therefore sits
+  at the DC average of the PWM output, which at idle is 50% duty into a 3.3 V
+  swing: **about 1.65 V**.
+- **Pot side.** `RV1` pin 3 is grounded, so pin 1 has a DC path to ground
+  through the pot element. `C3` blocks any DC arriving from the filter, so no
+  current flows and there is no drop across the element: **0 V**.
+
+1.65 V against 0 V, so `+` faces the filter. In `perfectpaul2.net` it is the
+other way round - pad 2 (`-` on a KiCad `CP` footprint) is on the filter node -
+which leaves the part **reverse biased by about 1.65 V**.
+
+The rule of thumb that a coupling cap's `+` faces the amplifier input is a fair
+one, but it assumes the *downstream* stage carries the bias, which is the usual
+case when feeding a directly-coupled input sitting at mid-rail. Here it does
+not: the pot shorts that end to ground, and the bias is entirely upstream.
+
+### Better: do not use a polarised part here at all
+
+The bias is only 1.65 V and the audio swings around it, so this is a marginal
+application for an electrolytic even when oriented correctly. `C3` with `RV1`
+gives a high-pass corner of 1/(2*pi*10u*20k) = 0.8 Hz, which is about four
+octaves lower than anything needed - DECtalk has no content below roughly 80 Hz.
+
+Dropping to **1 uF** puts the corner at 8 Hz, still far below the speech band,
+and 1 uF is readily available as a non-polarised film part. That removes the
+polarity question permanently rather than documenting it. Fit that in preference
+to a correctly-oriented electrolytic.
+
+## Selecting between the PAM and the MAX98357A outputs
+
+**Both are bridge-tied-load class-D amplifiers.** On both parts, the `-` speaker
+terminal is not ground: it is a second actively-switching output driven
+antiphase to `+`. That has two consequences, and getting either wrong destroys
+an output stage:
+
+- **Never ground a speaker output**, on either module. It shorts a half-bridge.
+- **Never tie the two modules' `-` outputs together.** They are two independent
+  switching outputs. Commoning them parallels two active drivers.
+
+So the answer to "can I common the negatives and switch only `+`" is **no**. The
+module *power* grounds are already commoned through the card ground and must
+stay that way - but the speaker `-` lines are a different signal entirely, and
+share only a name.
+
+Use a genuine two-pole switch, one pole per speaker lead:
+
+```
+MAX98357A OUT+ ---o
+                      \
+PAM8403    LOUT+ ---o   o--- speaker +      pole 1
+ 
+MAX98357A OUT- ---o
+                      \
+PAM8403    LOUT- ---o   o--- speaker -      pole 2
+```
+
+Specify **break-before-make**, which ordinary toggle and slide switches are.
+A make-before-break part would briefly connect both amplifiers' outputs together
+during the transition, which is exactly the case above. A 2x3 pin header with
+two shunts works equally well and is cheaper, at the cost of moving two jumpers
+instead of one switch.
+
+Both amplifiers idle with their outputs switching even with no input, so this
+selection is real work rather than a convenience: it is not enough to rely on
+only one backend being built into the firmware. Leaving the unused amplifier
+powered into an open circuit is harmless.
+
+`SD` on the MAX98357A (`J2` pin 5) is currently a single-node net and is
+available if you would rather also mute the unused amplifier - it needs a third
+pole, or a separate jumper.
+
+## First power-up checks
 
 ## Notes for a PCB revision
 
@@ -411,7 +480,13 @@ next revision - a few things are worth designing in rather than discovering:
   `perfectpaul2.net`, so Apple +5 V currently reaches `VSYS` undioded.
 - **Give `R5`/`R6` real values.** They are unset in the netlist; the MAX98357A
   gain table wants 100 kOhm for the through-resistor positions.
-- **Make `SW1` incapable of shorting the rail.** See the section below.
+- **Make `SW1` incapable of shorting the rail.** See the section below. Note a
+  **4-position** DIP is sufficient for all five gain settings: position 3 in the
+  current design ties `GAIN` to an unconnected pin, which is identical to
+  leaving every switch open. Dropping it costs nothing and all-open becomes the
+  9 dB floating default.
+- **Select the speaker between the two amplifiers with a two-pole switch.** See
+  the section on that below - the `-` outputs must be switched too.
 - **Check `C3`'s polarity**, which as netlisted sits reverse biased by about
   1.65 V. See the audio output stage section above.
 - **Fit series termination footprints on all nine bus signals** and populate
