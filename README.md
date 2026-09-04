@@ -521,7 +521,8 @@ budget.
 the 74LS revision and matters more now that `3V3_OUT` is a distributed rail on
 the card rather than an unused pin.
 
-Place bulk capacitance from `CARD_5V` to ground near the amplifier headers.
+Place a reservoir capacitor from `CARD_5V` to ground near the amplifier
+headers.
 **Revision 2's schematic does not have any** - see "Before fabricating revision
 2" below. Keep speaker current modest when it is drawn from the Apple slot.
 
@@ -548,7 +549,7 @@ part.
 | R10, R11 | 2 | 10 kOhm | Pull-ups to 3V3 on U3's `/DEVSEL` and `R/W` inputs |
 | C1, C2 | 2 | 100 nF ceramic | One at each IC |
 | D1 | 1 | 1N5817 or equivalent | Schottky isolation into Pico VSYS |
-| C3 | 1 | 10-47 uF | Local bulk decoupling |
+| C3 | 1 | 10-47 uF | Local reservoir capacitor on the 5 V rail |
 
 Deleted relative to the 74LS revision: RN1 (eight 4.7 kOhm series resistors), R9
 (the strobe series resistor), and the 74LS245N/74LS32N themselves.
@@ -603,7 +604,7 @@ footprints because that is the module's pin spacing, not because all seven are
 used.
 
 **`J2` pin 7 and `J4` pin 6 are where 5 V enters each amplifier** — the point
-the bulk capacitor below should sit next to.
+the reservoir capacitor below should sit next to.
 
 ## Build
 
