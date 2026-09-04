@@ -205,7 +205,7 @@ volume trimmer:
 ```
 GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
                 |           |   C3  |
-             C1 22nF     C2 22nF   10uF     RV1 20k ---> PAM8403 L and R in
+             C1 22nF     C2 22nF   NP       RV1 20k ---> PAM8403 L and R in
                 |           |                |
                GND         GND              GND
 ```
@@ -214,13 +214,20 @@ GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
 |---|---|---|
 | R3, R4 | 1 kΩ | Series elements of the two-pole low-pass |
 | C1, C2 | 22 nF | Shunt legs, 1/(2π·1k·22n) = 7.2 kHz per section |
-| C3 | 10 µF | DC block; the PWM node idles around 1.65 V |
+| C3 | 1 µF or more, **non-polarised** | DC block; the PWM node idles around 1.65 V |
 | RV1 | 20 kΩ | Volume trimmer, wiper into the PAM8403 |
 
-`C3` with `RV1` puts the high-pass corner at 0.8 Hz, so the 10 µF is blocking DC
-rather than shaping anything, and 20 kΩ is high enough against the 1 kΩ series
-elements not to disturb the filter. Note the two RC sections are unbuffered and
-load each other, so the real response is not a textbook two-pole.
+`C3` only blocks DC; against `RV1` even 1 µF corners at 8 Hz, far below anything
+DECtalk produces, so the value is not critical. **It must be non-polarised**,
+though: the bias in this circuit sits upstream of the cap rather than
+downstream, which is the opposite of the usual coupling-cap case, and the first
+prototype board has a polarised part in backwards as a result. 20 kΩ is high
+enough against the 1 kΩ series elements not to disturb the filter. Note the two
+RC sections are unbuffered and load each other, so the real response is not a
+textbook two-pole.
+
+The derivation, and the rest of the known fixes for the next board revision, are
+in [pico-apple2/HARDWARE-74LVC.md](pico-apple2/HARDWARE-74LVC.md).
 
 That beats a single pole at 16 kHz by more than 25 dB on the carrier, and its
 much lower source impedance is far less prone to picking up hum and digital
