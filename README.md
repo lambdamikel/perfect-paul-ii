@@ -32,6 +32,7 @@ awaiting fabrication.
   - [Power wiring](#power-wiring)
   - [Bill of materials for the bus interface](#bill-of-materials-for-the-bus-interface)
   - [Revision 2 designators](#revision-2-designators)
+  - [Connectors](#connectors)
 - [Build](#build)
   - [Talking to it from a terminal](#talking-to-it-from-a-terminal)
   - [If the build fails to link](#if-the-build-fails-to-link)
@@ -48,6 +49,7 @@ awaiting fabrication.
 - [First power-up checks](#first-power-up-checks)
 - [Board revisions](#board-revisions)
   - [Fixed in revision 2](#fixed-in-revision-2)
+  - [Before fabricating revision 2](#before-fabricating-revision-2)
   - [Still open for a third revision](#still-open-for-a-third-revision)
   - [Layout notes, unchanged](#layout-notes-unchanged)
 - [Licensing](#licensing)
@@ -519,8 +521,9 @@ budget.
 the 74LS revision and matters more now that `3V3_OUT` is a distributed rail on
 the card rather than an unused pin.
 
-Place 10-47 uF bulk capacitance from `CARD_5V` to ground near the Pico and audio
-module. Keep speaker current modest when it is drawn from the Apple slot.
+Place bulk capacitance from `CARD_5V` to ground near the amplifier headers.
+**Revision 2's schematic does not have any** - see "Before fabricating revision
+2" below. Keep speaker current modest when it is drawn from the Apple slot.
 
 **Everything the card powers belongs on the cathode side.** That is the whole
 point of D1, and it is easy to get backwards: the anode is upstream, on the
@@ -577,6 +580,30 @@ the silkscreen rather than either table:
 Note especially that **`SW1` means the gain DIP on revision 1 and the reset
 button on revision 2**. `C1`/`C2`/`C3` are audio parts on both boards, not
 decoupling.
+
+### Connectors
+
+Each amplifier module occupies two connectors, one for signal and power and one
+for its speaker output:
+
+| Ref | Pins | What plugs in |
+|---|---|---|
+| `J1` | 50 | Apple II slot edge connector |
+| `J2` | 7 | **MAX98357A** signal and power: LRC, BCLK, DIN, GAIN, SD, GND, Vin |
+| `J6` | 2 | **MAX98357A** speaker output |
+| `J4` | 7 | **PAM8403** input and power: L in, GND, R in, -, -, 5 V, GND |
+| `J3` | 7 | **PAM8403** speaker output, on pins 6 and 7 |
+| `J7` | 2x3 | Speaker source selector, two shunts |
+| `J5` | 2 | The speaker itself |
+
+`J2`'s order is the Adafruit MAX98357A breakout's own pinout, so the module
+drops straight on. `J4` pins 1 and 3 both carry the same mono signal, since the
+PAM8403 is a stereo part being fed one channel. `J3` and `J4` are 7-pin
+footprints because that is the module's pin spacing, not because all seven are
+used.
+
+**`J2` pin 7 and `J4` pin 6 are where 5 V enters each amplifier** — the point
+the bulk capacitor below should sit next to.
 
 ## Build
 
@@ -1048,6 +1075,33 @@ been built or tested, and the Gerbers will be published here once it has been.
 | `RV1` 20 kOhm, matching the fitted part | schematic said 50 kOhm |
 | `U1`/`U2` valued `74LVC32` / `74LVC245` | valued as 74LS parts |
 | `C4`, `C5`, `C6` valued 100 nF | unset |
+
+### Before fabricating revision 2
+
+- **Put a reservoir capacitor on `VCC`.** The card's 5 V rail currently has no
+  capacitor on it at all: `VCC` reaches only `A1.39`, `D1.1`, `J2.7`, `J4.6`,
+  `R6.2` and `R7.2`. Add a **100 uF electrolytic and a 100 nF ceramic** from
+  `VCC` to GND, beside `J2` and `J4` rather than beside `D1` - close to what
+  draws the current, not to what supplies it.
+
+  This is different from the 100 nF parts at each logic IC. Those are
+  *decoupling*: small, fast, and there to absorb the brief spikes a chip makes
+  when its outputs switch. A large electrolytic is *bulk*, or reservoir,
+  capacitance: slow to respond but able to store real charge, and there to cover
+  a sustained gulp of current. The two cover different speeds, so both go in
+  parallel - the electrolytic holds plenty but reacts sluggishly, the ceramic
+  reacts instantly but holds almost nothing.
+
+  Think of the rail as a water pipe and the amplifier as a tap. `D1` and the
+  trace are now in that pipe. When a loud passage demands a sudden gulp, the
+  pipe cannot deliver fast enough and the pressure at the tap drops; a reservoir
+  beside the tap covers the gulp and refills between them. **Fitting `D1` is
+  precisely what makes this matter**, since it put a component in the pipe.
+
+  Without it the rail sags on loud passages: intermodulation at best, a Pico
+  brownout at worst. Both breakout modules carry some of their own, and DECtalk
+  speech is not a bass-heavy load, so it may never bite. It is a few cents of
+  insurance in the place that just gained a series diode.
 
 ### Still open for a third revision
 
