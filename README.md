@@ -68,7 +68,9 @@ announces itself out loud at power-up. A further board revision is planned.
 ```
 
 That is the entire interface. Bytes written to the card's slot window are
-queued as text; a carriage return speaks the line.
+queued as text; a carriage return (`13`) speaks the line. Byte `144` (`$90`)
+stops speech already in progress, as does `3` (Ctrl-C). DECtalk inline commands
+are printable text, so `"[:np]HELLO"` is sent exactly the same way.
 
 ### Any slot works
 
@@ -113,6 +115,10 @@ low pulse and pushes it when the strobe rises. This matters: a 6502 does not
 drive valid data until well after `/DEVSEL` falls, so sampling at the start of
 the window would latch garbage. Sampling at the end is what conventional
 Apple II cards do with a '374.
+
+The bus state machine runs on **PIO1** and the I2S implementation on **PIO0**,
+so the two never contend for a state machine. The firmware disables the internal
+pulls on GP0-GP7 and enables a pull-up only on GP8.
 
 ## The card
 
@@ -592,7 +598,8 @@ Ctrl-Reset does not re-trigger it.
 
 **Both paths are verified on hardware.** PWM is GP28 into an amplified input;
 I2S is GP20/21/22 into a MAX98357A. Audio quality is indistinguishable between
-them.
+them. Note GP28 **cannot drive an 8 Ω speaker directly** — the PWM path always
+needs an amplified input behind its filter.
 
 ### What the hand-wired prototype used
 
@@ -840,6 +847,11 @@ directly, and a PCM5102 would give line out with negligible slot current. This
 is now verified on hardware, including the `DAISY` and `ELIZA` demos. Unlike the
 PWM build it runs the RP2040 at the default 125 MHz, because `pico_audio_i2s`
 derives its own dividers from `clk_sys`.
+
+Keep speaker power modest when drawing it from the slot: an amplifier at volume
+can pull most of an amp from +5 V. That is acute on a II+, whose 4116 DRAM and
+Language Card already load a supply rated around 2.5 A. A line-level output into
+an externally powered speaker is the low-risk option.
 
 Build the self test with the same preset as the firmware. `dectalk_selftest`
 follows `DECTALK_AUDIO_I2S`, so `pico-i2s-release` yields an I2S self test and
