@@ -411,10 +411,7 @@ next revision - a few things are worth designing in rather than discovering:
   `perfectpaul2.net`, so Apple +5 V currently reaches `VSYS` undioded.
 - **Give `R5`/`R6` real values.** They are unset in the netlist; the MAX98357A
   gain table wants 100 kOhm for the through-resistor positions.
-- **Make `SW1` incapable of shorting the rail.** Positions 2 and 4 tie `GAIN`
-  directly to GND and to 5 V respectively, so closing both is a dead short. Only
-  the silkscreen prevents it today; one series resistor in the 5 V leg would
-  make it impossible.
+- **Make `SW1` incapable of shorting the rail.** See the section below.
 - **Check `C3`'s polarity**, which as netlisted sits reverse biased by about
   1.65 V. See the audio output stage section above.
 - **Fit series termination footprints on all nine bus signals** and populate
@@ -440,6 +437,62 @@ next revision - a few things are worth designing in rather than discovering:
 - Verify the edge connector finger numbering against an Apple II reference
   before fabrication, remembering that the data pins run backwards: D7 on slot
   pin 42 through D0 on slot pin 49.
+
+## The SW1 gain selector can short the 5 V rail
+
+`SW1` is a 5-position DIP where each position ties the MAX98357A's `GAIN` pin to
+a different place. In KiCad's `SW_DIP_x05`, position *N* bridges pin *N* to pin
+*11-N*, which gives:
+
+| Position | Connects `GAIN` to | MAX98357A gain |
+|---:|---|---|
+| 1 | GND via `R5` | 15 dB |
+| 2 | GND directly | 12 dB |
+| 3 | nothing (floating) | 9 dB |
+| 4 | 5 V directly | 6 dB |
+| 5 | 5 V via `R6` | 3 dB |
+
+Exactly one is meant to be closed. **Closing 2 and 4 together is a dead short
+from 5 V to ground** through two switch contacts, with the Apple II's supply
+behind it: enough to weld the contacts or lift a trace. Today only the
+silkscreen prevents it.
+
+Combinations involving `R5` or `R6` are harmless, because those legs are
+current-limited by 100 kOhm. 2+4 is the only fatal pair.
+
+### Why a diode does not fix it
+
+A diode blocks *reverse* current, and this fault is forward. In series with the
+5 V leg it would conduct straight through the short: 5 V, anode, cathode,
+`GAIN`, position 2, ground, at whatever current the rail can deliver less a
+0.7 V drop. It would also pull the "tied to V_DD" level down by that 0.7 V and
+blur the very threshold the gain detection depends on. Wrong tool.
+
+### One resistor fixes it
+
+Put **1 kOhm in series with either of the two direct legs** - between 5 V and
+`SW1` pin 7, or between `SW1` pin 9 and ground. Either one breaks the metallic
+path, so only one is needed:
+
+```
+5V ---[1k]--- SW1 pin 7   (position 4, "direct" to VDD)
+```
+
+Worst case becomes 5 V / 1 kOhm = 5 mA, which nothing notices. The gain setting
+still reads correctly because the MAX98357A distinguishes "direct" from "via
+100 kOhm" against an internal network of that same order: 1 kOhm is one percent
+of 100 kOhm, so a direct connection still looks direct. Do not scale it up to
+10 kOhm or beyond without checking the gain by ear - at that point it starts to
+approach the 100 kOhm setting it is supposed to be distinct from.
+
+### The structural fix
+
+Better still, make the bad state unreachable. `GAIN` needs one of five mutually
+exclusive states, which is a **selector**, not five independent switches. A
+6-pin SIL header with a single jumper shunt, or a 1-pole 5-throw rotary, cannot
+express "two at once" at all, and costs less board area than the DIP. That
+removes the failure mode rather than current-limiting it, and is the
+recommended change for the next revision.
 
 ## First power-up checks
 
