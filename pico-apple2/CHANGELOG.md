@@ -1,5 +1,56 @@
 # Perfect Paul ][ - changelog
 
+## Revision 3c - I2S working, spoken ready message
+
+- **`dectalk_selftest` now follows `DECTALK_AUDIO_I2S` instead of always being
+  built for PWM.** The `pico-i2s-release` preset previously emitted a
+  `dectalk_selftest.uf2` containing no I2S code at all, so flashing it to a
+  board wired for a MAX98357A produced silence by construction: it drove GP28
+  as PWM and left BCLK, LRCLK and DIN idle. The directory name made the binary
+  look like an I2S image when it was byte-for-byte the PWM one.
+- Both targets now take their audio backend from a single
+  `dectalk_configure_audio()` function in `CMakeLists.txt`, so the self test can
+  no longer be built against a different backend than the firmware it vouches
+  for.
+- The I2S self test skips the PWM build's 96 MHz `set_sys_clock_khz()` and runs
+  at the SDK default, matching the firmware, because `pico_audio_i2s` derives
+  its own dividers from `clk_sys`.
+- Documented the optional **reset button**: `RUN`, physical pin 30, momentary to
+  GND. Also documents `BOOTSEL` + reset as the way to reach the bootloader
+  without unplugging USB, and warns off pin 37 (`3V3_EN`) two pins away, which
+  would take `U2` and `U3` down with the regulator.
+- Collected the outstanding hardware gaps - missing `D1`, unset `R5`/`R6`, the
+  `SW1` short, and `C3`'s polarity - into the PCB revision notes rather than
+  leaving them scattered.
+- **Retired the 74LS interface.** 74LVC is now the only supported build, and
+  `HARDWARE-74LS.md` has been removed - it is still in git history. The
+  comparative notes in `HARDWARE-74LVC.md` are kept, since they are what explain
+  why the current design has no series resistors anywhere.
+- **The card now says "Perfect Paul Two ready." on power-up**, with "perfect"
+  spelled phonemically as `[prrfihkt]`. The word is absent from
+  `dic/dtalk_us.dic`, so it fell through to the letter-to-sound rules and was
+  stressed as the verb, per-FECT - nearly every other English `-ect` word takes
+  final stress. `paul`, `two` and `ready` are all in the dictionary and stayed
+  as ordinary text. Confirmed by ear over the USB CDC console, which turned out
+  to be the fastest way to audition candidate spellings without reflashing.
+  `DECTALK_SPEAK_STARTUP_BANNER` now defaults to ON, and the placeholder text it
+  had been carrying since it was written became the card's actual name. The
+  wording lives in `DECTALK_STARTUP_BANNER_TEXT` in `main.c`. It is spoken after
+  core 1 signals readiness, so the card is already accepting slot writes while
+  it announces itself. Note this is a power-up message, not a reset message:
+  slot pin 31 (`/RES`) is not wired to the Pico's RUN pin, so Ctrl-Reset does
+  not re-trigger it.
+- **The I2S build now works end to end in a real Apple II**, including the
+  `DAISY` and `ELIZA` demos, through a MAX98357A on GP20/21/22. Audio quality is
+  indistinguishable from the PWM build. This also clears the last open question
+  about the bus, which had only ever been proven at the PWM build's 96 MHz and
+  now runs at the I2S build's 125 MHz.
+- The I2S self test passes on the same hardware, which is what made the firmware
+  result diagnosable rather than a guess.
+- Confirmed the refactor is behaviour-preserving by rebuilding the pre-change
+  sources and comparing: the PWM self test is byte-identical, and both firmware
+  images differ only in the 4 bytes of DECtalk's embedded `__DATE__` string.
+
 ## Revision 3b - demo software
 
 - Added `DAISY`, which sings Daisy Bell through DECtalk's phoneme mode. The

@@ -72,6 +72,17 @@ _Static_assert(APPLE2_WRITE_STROBE_GPIO ==
 #define DECTALK_SPEAK_STARTUP_BANNER 0
 #endif
 
+// "perfect" is the one word here with no entry in DECtalk's dictionary, so its
+// stress falls through to the letter-to-sound rules. Those give the verb form,
+// per-FECT, because nearly every other English -ect word takes final stress
+// (affect, collect, correct, detect). Spelling just that word phonemically
+// fixes it. "Paul", "two" and "ready" all have dictionary entries and are left
+// as ordinary text, which is why phoneme mode is switched straight back off.
+#ifndef DECTALK_STARTUP_BANNER_TEXT
+#define DECTALK_STARTUP_BANNER_TEXT \
+    "[:phone arpa speak on][prrfihkt][:phone arpa speak off] Paul Two ready.\x0b"
+#endif
+
 typedef struct {
     char text[MAX_LINE_LEN];
     bool sync;
@@ -182,7 +193,10 @@ static void core1_tts_task(void) {
     multicore_fifo_push_blocking(1u);
 
 #if DECTALK_SPEAK_STARTUP_BANNER
-    TextToSpeechStart((char *)"DECtalk Apple Two is ready.", NULL, WAVE_FORMAT_1M16);
+    // Spoken after the FIFO push, so the card is already accepting slot writes
+    // while it announces itself; anything the Apple II sends meanwhile queues.
+    // "Two" rather than "][" because that is what DECtalk says for the numeral.
+    TextToSpeechStart((char *)DECTALK_STARTUP_BANNER_TEXT, NULL, WAVE_FORMAT_1M16);
     TextToSpeechSync();
 #endif
 
