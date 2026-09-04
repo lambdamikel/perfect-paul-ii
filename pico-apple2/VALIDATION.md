@@ -4,12 +4,17 @@ Package revision: 74LVC interface revision 3a.
 
 ## Verified on hardware
 
-**The PWM build works end to end in a real Apple II.** A `POKE` to the card's
-device window produces intelligible speech. Working first time, with no
-adjustment to timing, wiring, or firmware.
+**Both the PWM and the I2S build work end to end in a real Apple II.** A `POKE`
+to the card's device window produces intelligible speech. The PWM build worked
+first time, with no adjustment to timing, wiring, or firmware; the I2S build
+followed once its self test existed, and runs the `DAISY` and `ELIZA` demos as
+well.
 
-The tested card is a **hand-wired prototyping board** with the SOIC parts on
-DIP breakout adapters. No PCB has been designed or fabricated yet.
+The tested card is a **fabricated prototype PCB** with the SOIC parts soldered
+directly, superseding the hand-wired board the earlier results came from. Both
+audio backends are populated at once - a MAX98357A module for I2S and a PAM
+class-D module for PWM - with the speaker on flying leads so either can be
+compared against the other. A further board revision is planned.
 
 That single result validates the whole chain:
 
@@ -26,14 +31,29 @@ That single result validates the whole chain:
 - Slot connector wiring, including the data pins running backwards (D7 on slot
   pin 42, D0 on slot pin 49).
 - The core-0 receive / core-1 synthesis split under real bus traffic, and the
-  `\r` to `\x0b` line protocol.
+  `\r` to `\x0b` line protocol. Verified with audio on both cores' backends:
+  PWM and I2S each run their DMA IRQ on core 1 beside the synthesis callback,
+  leaving core 0's slot poll uninterrupted.
 - `/WRSEL = /DEVSEL OR R/W` correctly ignoring read cycles to the same window.
+- **The bus at both system clocks.** The interface was first proven at the PWM
+  build's 96 MHz and then at the I2S build's 125 MHz. `apple2_slot_rx.pio` is
+  fully asynchronous - `wait 0 pin 8`, a `jmp pin` guard on each side of every
+  sample, no delay cycles, and no `sm_config_set_clkdiv` - so a faster clock
+  only iterates the sample loop more often inside the `/WRSEL` low window. That
+  predicted the higher clock would widen the margin rather than narrow it, and
+  the hardware agrees.
 
 Also verified separately, before the card existed:
 
-- The PWM speech self test (`dectalk_selftest.uf2`) speaks its phrase loop at
-  the correct pitch, exercising DECtalk synthesis, the `NO_FILESYSTEM` embedded
-  dictionary, and the PWM audio path with no Apple II involved.
+- The PWM speech self test (`dectalk_selftest.uf2` from `pico-pwm-release`)
+  speaks its phrase loop at the correct pitch, exercising DECtalk synthesis, the
+  `NO_FILESYSTEM` embedded dictionary, and the PWM audio path with no Apple II
+  involved.
+- The I2S speech self test (`dectalk_selftest.uf2` from `pico-i2s-release`)
+  speaks the same loop through a MAX98357A on GP20/21/22, with audio quality
+  indistinguishable from the PWM build. That covers `pico_audio_i2s`, PIO0, the
+  DMA path, the pin assignment, and the 125 MHz clock, since a wrong divider
+  would shift pitch audibly.
 
 Audio for both was 1-bit PWM on GP28 through a passive low-pass into a PAM8403
 class-D breakout.
@@ -62,13 +82,12 @@ directory and a copy on the Floppy Emu SD card. Deploying means updating both.
 
 ## Not yet verified on hardware
 
-- **The I2S path.** `dectalk_apple2.uf2` from the `pico-i2s-release` preset has
-  never been run. It is a different audio library, a different PIO instance, a
-  different set of pins, and a different system clock (125 MHz rather than the
-  PWM build's 96 MHz). Nothing about the PWM result carries over to it except
-  the bus interface, which is shared and now proven.
-- **A PCB revision.** Everything below about signal integrity was reasoned from
-  a hand-wired board and has not been re-checked in copper.
+- **The next PCB revision.** The signal-integrity reasoning below was first
+  worked out for the hand-wired board. The prototype PCB works, so it is no
+  longer untested in copper, but it has not been measured, and known gaps are
+  carried forward: `D1` is absent from `perfectpaul2.net`, so Apple +5 V reaches
+  `VSYS` undioded; `R5`/`R6` have no value assigned; and nothing but the
+  silkscreen prevents `SW1` positions 2 and 4 from shorting 5 V to ground.
 - Long-run stability, thermal behaviour, and slot current under sustained use.
 - Logic-analyzer timing capture of `/DEVSEL`, `R/W`, `/WRSEL`, and D0-D7. The
   interface demonstrably works, but the actual margin at the end of the write

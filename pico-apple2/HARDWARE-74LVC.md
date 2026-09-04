@@ -314,12 +314,57 @@ Deleted relative to the 74LS revision: RN1 (eight 4.7 kOhm series resistors), R9
 A MAX98357A-style I2S amplifier module and speaker are additional audio parts,
 not part of the Apple bus interface itself.
 
+## PWM audio output stage, as fitted on the prototype PCB
+
+Designators in this section follow `perfectpaul2.net`, the fabricated board.
+**They do not match the bus-interface BOM above**, which was written for the
+hand-wired card: on the PCB the Pico is `A1`, the '245 is `U2`, the '32 is `U1`,
+the two pull-ups are `R1`/`R2`, and the 3.3 V decoupling is `C4`/`C5`. `C1`,
+`C2` and `C3` below are audio parts, not decoupling. Read the silkscreen, not
+the older table.
+
+```
+GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
+                |           |   C3  |
+             C1 22nF     C2 22nF   10uF        RV1 20k ---> PAM8403 L and R in
+                |           |                   |
+               GND         GND                 GND
+```
+
+| Ref | Value | Function |
+|---|---|---|
+| R3, R4 | 1 kOhm | Series elements of a two-pole RC low-pass |
+| C1, C2 | 22 nF | Shunt legs. Each section corners at 1/(2*pi*1k*22n) = 7.2 kHz |
+| C3 | 10 uF | DC block between the filter and the volume trimmer |
+| RV1 | 20 kOhm | Volume trimmer, wiper to the PAM8403 input |
+
+DECtalk here is an 11025 Hz stream with no content above 5.5 kHz, while
+`pico_audio_pwm` carries a roughly 353 kHz 1-bit carrier, so there is a very
+wide gap to filter in. The two sections are unbuffered and load each other, so
+the real response is not a textbook 7.2 kHz two-pole, but the carrier still
+lands on the order of 60 dB down. `RV1` at 20 kOhm is high enough against the
+1 kOhm series elements that it does not disturb the filter much.
+
+`C3` with `RV1` forms a high-pass at 1/(2*pi*10u*20k) = 0.8 Hz, far below the
+speech band, so the 10 uF is doing DC blocking rather than shaping anything.
+
+### Check C3's polarity before the next board spin
+
+In `perfectpaul2.net`, `C3` pad 2 sits on the filter node and pad 1 on `RV1`.
+For a KiCad `CP` footprint pad 1 is the `+` terminal. The filter node idles at
+the PWM average, about 1.65 V, while the `RV1` end is DC-grounded through the
+pot element - so **as netlisted the part is reverse biased by about 1.65 V**.
+That is small enough to survive for a long time and is easy to miss, but it
+degrades an electrolytic. Either reverse it or fit a non-polarised 10 uF. This
+was read off the netlist, not measured on the board, so verify against the
+silkscreen before changing anything.
+
 ## Notes for a PCB revision
 
-The reference card is hand-wired with the SOIC parts on breakout adapters. A
-PCB removes the adapters and their trace length, so it should be electrically
-better in every respect — but a few things are worth designing in rather than
-discovering:
+A first prototype PCB has been fabricated and works, with the SOIC parts
+soldered directly rather than on the breakout adapters the hand-wired card used.
+The notes below were written against that hand-wired card and are kept for the
+next revision - a few things are worth designing in rather than discovering:
 
 - **Fit series termination footprints on all nine bus signals** and populate
   them with 0 Ohm links. LVC switches in 1-2 ns, and reflections start to

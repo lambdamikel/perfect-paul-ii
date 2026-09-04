@@ -11,10 +11,11 @@ from an Apple II slot write register using RP2040 PIO.
 
 **Working.** The PWM build has been verified end to end in a real Apple II. It
 speaks plain text, sings in DECtalk's phoneme mode, and holds an interactive
-session — see the two demo programs below. The tested card is a hand-wired
-prototyping board; a PCB is in progress.
+session — see the two demo programs below. The tested card is a fabricated
+prototype PCB carrying both audio backends at once; a further revision is
+planned.
 
-The I2S build compiles but has not been run on hardware. See `VALIDATION.md`
+Both the PWM and the I2S build have been run on hardware. See `VALIDATION.md`
 for exactly what has and has not been verified.
 
 This revision uses 3.3 V LVC logic as a proper level translator:
@@ -156,7 +157,7 @@ is far less sensitive to it.
 
 ### Better quality: one I2S module
 
-Not yet tested on hardware, but it is the better end state. The digital-to-
+Verified on hardware, and the better end state. The digital-to-
 analog conversion happens inside a dedicated chip receiving clean digital data,
 rather than in a passive filter referenced to an Apple II ground shared with
 the whole machine's switching. The audible difference shows up mainly as hiss
@@ -323,6 +324,32 @@ Expected I2S firmware output:
 ```
 build/i2s-release/dectalk_apple2.uf2
 ```
+
+Each preset also builds a standalone self test beside the firmware:
+
+```
+build/i2s-release/dectalk_selftest.uf2
+```
+
+It speaks a fixed phrase loop by itself, with no Apple II and no slot traffic,
+over the same audio backend as the firmware built next to it. Flash it first
+when bringing up a new board: if the self test is silent, the fault is in the
+audio path rather than in the bus interface. Note that the firmware itself is
+silent on the bench, since it only speaks bytes arriving from the slot and
+`DECTALK_SPEAK_STARTUP_BANNER` is on by default, so a working card announces
+itself with "Perfect Paul Two ready." when the Apple II is switched on. Build
+with `-DDECTALK_SPEAK_STARTUP_BANNER=OFF` for a silent boot. The wording is
+`DECTALK_STARTUP_BANNER_TEXT` at the top of `main.c`; keep the trailing `\x0b`,
+which is what tells DECtalk to speak the buffer.
+
+That string spells "perfect" phonemically on purpose - do not simplify it back
+to plain text. `perfect` has no entry in `dic/dtalk_us.dic`, so it falls through
+to the letter-to-sound rules and comes out as the verb, per-FECT. `paul`,
+`two` and `ready` do have entries, so phoneme mode is switched straight back off
+after the one word that needs it.
+
+The card has no reset line: slot pin 31 (`/RES`) is not wired, so the message
+plays on power-up, not on Ctrl-Reset.
 
 For PWM audio, use `pico-pwm-release` instead.
 

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Standalone bring-up test for the DECtalkMini Pico port.
 //
-// No Apple II, no I2S board, no serial input required: this speaks a fixed
-// set of phrases in a loop over 1-bit PWM audio on a single GPIO, so you can
-// confirm that the synthesiser and the audio path work at all before the rest
-// of the hardware exists.
+// No Apple II and no serial input required: this speaks a fixed set of phrases
+// in a loop, so you can confirm that the synthesiser and the audio path work at
+// all before the rest of the hardware exists.
+//
+// The audio backend follows DECTALK_AUDIO_I2S exactly as the Apple II firmware
+// does, so an I2S build of this test exercises the same library, PIO instance,
+// pins and system clock the firmware will use. Hardcoding one backend here
+// would let the self test pass while the firmware's audio path stays untested.
 //
 // Everything runs on core 0. The Apple II firmware puts TTS on core 1 because
 // core 0 is busy servicing the slot; here there is nothing to service, and one
@@ -18,13 +22,19 @@
 #include "epsonapi.h"
 #include "hardware/clocks.h"
 #include "hardware/pio.h"
-#include "pico/audio_pwm.h"
 #include "pico/stdlib.h"
+
+#if DECTALK_AUDIO_I2S
+#include "pico/audio_i2s.h"
+#else
+#include "pico/audio_pwm.h"
+#endif
 
 #define AUDIO_SAMPLE_RATE 11025u
 #define AUDIO_BUFFER_SAMPLES 71u
 #define MAX_LINE_LEN 256u
 
+#if !DECTALK_AUDIO_I2S
 // pico_audio_pwm's PIO program is written for a 48 MHz PIO clock ("136
 // clocks/cycle frequency 352941 / 16 = 22058" in audio_pwm.pio) and the library
 // never calls sm_config_set_clkdiv. Every pico-playground app that uses it
@@ -35,6 +45,9 @@
 // with, so instead run the core at 96 MHz and divide the PIO clock by exactly
 // two. The divider is computed from the clock we actually got, so this stays
 // correct even if the 96 MHz request is refused.
+//
+// The I2S path derives its own dividers from clk_sys and needs none of this, so
+// it runs at the SDK default clock, exactly as the Apple II firmware does.
 #define PWM_PIO_CLOCK_HZ 48000000u
 #define SYS_CLOCK_KHZ 96000u
 
@@ -42,6 +55,7 @@
 
 #ifndef DECTALK_PWM_GPIO
 #define DECTALK_PWM_GPIO 28u
+#endif
 #endif
 
 // Seconds to wait before the first utterance, so a USB terminal has time to
@@ -81,6 +95,25 @@ static struct audio_buffer_pool *init_audio(void) {
         panic("Unable to allocate Pico audio producer pool");
     }
 
+#if DECTALK_AUDIO_I2S
+    // The same PIO instance, DMA channel and pins the Apple II firmware uses,
+    // so a pass here is evidence about that firmware and not just about this
+    // test.
+    const struct audio_i2s_config config = {
+        .data_pin = PICO_AUDIO_I2S_DATA_PIN,
+        .clock_pin_base = PICO_AUDIO_I2S_CLOCK_PIN_BASE,
+        .dma_channel = 0,
+        .pio_sm = 0,
+    };
+
+    if (audio_i2s_setup(&audio_format, &config) == NULL) {
+        panic("Unable to set up I2S audio");
+    }
+    if (!audio_i2s_connect(producer_pool)) {
+        panic("Unable to connect I2S audio");
+    }
+    audio_i2s_set_enabled(true);
+#else
     // Mono PWM drives exactly one pin: config.core.base_pin.
     struct audio_pwm_channel_config config = default_mono_channel_config;
     config.core.base_pin = DECTALK_PWM_GPIO;
@@ -103,6 +136,7 @@ static struct audio_buffer_pool *init_audio(void) {
         panic("Unable to connect PWM audio");
     }
     audio_pwm_set_enabled(true);
+#endif
 
     return producer_pool;
 }
@@ -158,19 +192,32 @@ static void say(const char *text) {
 }
 
 int main(void) {
+#if !DECTALK_AUDIO_I2S
     // Must happen before stdio_init_all() so the UART divisors are derived from
     // the final clock. USB CDC is unaffected either way; it runs off the USB PLL.
     const bool clock_ok = set_sys_clock_khz(SYS_CLOCK_KHZ, false);
+#endif
 
     stdio_init_all();
     init_led();
 
+#if DECTALK_AUDIO_I2S
+    printf("\nDECtalkMini I2S speech self test\n");
+    printf("System clock: %lu Hz (SDK default)\n",
+           (unsigned long)clock_get_hz(clk_sys));
+    printf("Audio: I2S, mono, %u Hz on BCLK GP%u, LRCLK GP%u, data GP%u\n",
+           (unsigned)AUDIO_SAMPLE_RATE,
+           (unsigned)PICO_AUDIO_I2S_CLOCK_PIN_BASE,
+           (unsigned)PICO_AUDIO_I2S_CLOCK_PIN_BASE + 1u,
+           (unsigned)PICO_AUDIO_I2S_DATA_PIN);
+#else
     printf("\nDECtalkMini PWM speech self test\n");
     printf("System clock: %lu Hz (%u kHz requested: %s)\n",
            (unsigned long)clock_get_hz(clk_sys), (unsigned)SYS_CLOCK_KHZ,
            clock_ok ? "ok" : "refused, falling back");
     printf("Audio: 1-bit PWM, mono, %u Hz on GP%u\n",
            (unsigned)AUDIO_SAMPLE_RATE, (unsigned)DECTALK_PWM_GPIO);
+#endif
 
     // Blink through the startup delay so a board with no audio attached still
     // shows a sign of life.

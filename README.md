@@ -8,10 +8,9 @@ Drive it from BASIC with `POKE`.
 
 ![Perfect Paul II installed in an Apple IIe](images/card-in-slot.jpg)
 
-**Status: working on real hardware.** The PWM build has been verified end to
-end in an Apple IIe. The card pictured is a hand-wired prototyping board — the
-PCB is still work in progress and will be added here once it has been
-fabricated and tested. The I2S build compiles but has not yet been run.
+**Status: working on real hardware.** Both the PWM and the I2S builds have been
+verified end to end in an Apple IIe, now on a fabricated prototype PCB. The card
+announces itself out loud at power-up. A further board revision is planned.
 
 ## Watch it
 
@@ -81,11 +80,21 @@ pin-by-pin wiring, power, and PCB notes.
 
 ## The card
 
-> **The PCB is still to come.** Everything shown and documented here is a
-> hand-wired prototype on perfboard. Board files are work in progress and will
-> be added to this repository once the first PCB has been fabricated and
-> tested. Layout notes are already in
-> [pico-apple2/HARDWARE-74LVC.md](pico-apple2/HARDWARE-74LVC.md).
+**Prototype PCB.** Left to right: speaker, the MAX98357A I2S amplifier, the
+PAM8403 class-D module for the PWM path, and the Pico. Both audio backends are
+populated at once with the speaker on flying leads, so either can be compared
+against the other — which is exactly how the I2S path was brought up. The red
+DIP switches set the MAX98357A's gain, and the silkscreen reads **SET ONLY ONE**
+because two of the positions would otherwise short 5 V to ground. A further
+revision is planned; layout notes are in
+[pico-apple2/HARDWARE-74LVC.md](pico-apple2/HARDWARE-74LVC.md).
+
+<img src="images/card-pcb.jpg" width="700">
+
+### The hand-wired prototype
+
+The photographs below are the original perfboard card, which the first PWM
+results came from. Kept for reference.
 
 **Component side.** Left to right: speaker, PAM8403 class-D amplifier module,
 Raspberry Pi Pico, and the two SOIC-to-DIP breakouts carrying the `74LVC245AD`
@@ -139,9 +148,11 @@ about 25 KB, not about 424 KB.
 
 ## Audio
 
-**PWM** is the verified path: GP28 into an amplified input.
+**Both paths are verified on hardware.** PWM is GP28 into an amplified input;
+I2S is GP20/21/22 into a MAX98357A. Audio quality is indistinguishable between
+them.
 
-### What the prototype actually uses
+### What the hand-wired prototype used
 
 The card in the photographs uses **2 × 100 kΩ in series and no capacitors at
 all**, straight into a PAM8403 module. It sounds fine, and it is the
@@ -157,19 +168,32 @@ the carrier-to-signal ratio at all. What actually keeps the ultrasonic content
 inaudible is that the speaker cone cannot move at 353 kHz, plus the amplifier's
 finite bandwidth. The energy is still there; it just never becomes sound.
 
-### What the PCB will use
+### What the PCB uses
 
 DECtalk here is an 11025 Hz stream with nothing above 5.5 kHz, while
 `pico_audio_pwm` carries a ~353 kHz 1-bit carrier. That gap is enormous, so
-filtering hard costs nothing. Two poles near 7 kHz:
+filtering hard costs nothing. Two poles near 7 kHz, then a DC block into a
+volume trimmer:
 
 ```
-GP28 --[1k]--+--[1k]--+--||--> amplifier input
-             |        |   10uF
-           22nF     22nF
-             |        |
-            GND      GND
+GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
+                |           |   C3  |
+             C1 22nF     C2 22nF   10uF     RV1 20k ---> PAM8403 L and R in
+                |           |                |
+               GND         GND              GND
 ```
+
+| Ref | Value | Function |
+|---|---|---|
+| R3, R4 | 1 kΩ | Series elements of the two-pole low-pass |
+| C1, C2 | 22 nF | Shunt legs, 1/(2π·1k·22n) = 7.2 kHz per section |
+| C3 | 10 µF | DC block; the PWM node idles around 1.65 V |
+| RV1 | 20 kΩ | Volume trimmer, wiper into the PAM8403 |
+
+`C3` with `RV1` puts the high-pass corner at 0.8 Hz, so the 10 µF is blocking DC
+rather than shaping anything, and 20 kΩ is high enough against the 1 kΩ series
+elements not to disturb the filter. Note the two RC sections are unbuffered and
+load each other, so the real response is not a textbook two-pole.
 
 That beats a single pole at 16 kHz by more than 25 dB on the carrier, and its
 much lower source impedance is far less prone to picking up hum and digital
@@ -184,9 +208,16 @@ If you have already built the resistor-only version, one capacitor upgrades it
 in place: 220 pF from the junction between the two 100 kΩ resistors to ground
 puts a real pole at about 7 kHz without rewiring anything.
 
-**I2S** (GP20/21/22) is the better end state and needs no code change — a
-MAX98357A drives a speaker directly, a PCM5102 gives line out with negligible
-slot current. Untested so far.
+**I2S** (GP20/21/22) needs no code change — a MAX98357A drives a speaker
+directly, and a PCM5102 would give line out with negligible slot current. This
+is now verified on hardware, including the `DAISY` and `ELIZA` demos. Unlike the
+PWM build it runs the RP2040 at the default 125 MHz, because `pico_audio_i2s`
+derives its own dividers from `clk_sys`.
+
+Build the self test with the same preset as the firmware. `dectalk_selftest`
+follows `DECTALK_AUDIO_I2S`, so `pico-i2s-release` yields an I2S self test and
+`pico-pwm-release` a PWM one — a self test built for the other backend is silent
+by construction and tells you nothing.
 
 Note the PWM build runs the RP2040 at **96 MHz**, not the default 125 MHz.
 `pico_audio_pwm`'s PIO program assumes a 48 MHz PIO clock and the library never
@@ -292,18 +323,21 @@ java -jar AppleCommander-ac.jar -bas YOURDISK.dsk ELIZA < basic/ELIZA.bas
 ## Status and limitations
 
 Verified on hardware: the 74LVC interface, the PIO capture protocol, the
-core-0/core-1 split under real traffic, plain text, singing, and interactive
-use.
+core-0/core-1 split under real traffic, both the PWM and I2S audio paths, plain
+text, singing, and interactive use — on a fabricated prototype PCB.
 
-Not yet verified: the I2S path, long-run stability, slot current under sustained
+Not yet verified: long-run stability, slot current under sustained
 use, and any machine other than the one tested. The five slot signals used
 (D0-D7, `R/W`, `/DEVSEL`, +5 V, GND) are common to the II, II+ and IIe, so the
 design should be model-independent, but only one machine has run it.
 
-**No PCB exists yet.** The design has only ever run as a hand-wired prototype,
-so nothing here has been validated in copper — in particular the signal-integrity
-reasoning in the hardware notes is reasoned, not measured. Board files are work
-in progress.
+**The prototype PCB works, but has not been measured.** The signal-integrity
+reasoning in the hardware notes was worked out for the hand-wired card and is
+still reasoned rather than instrumented. Three known gaps carry into the next
+revision: `D1` is absent from the netlist, so Apple +5 V reaches `VSYS`
+undioded; the `R5`/`R6` gain resistors have no assigned value; and nothing but
+the silkscreen stops two `SW1` positions shorting 5 V to ground. Board files are
+still work in progress.
 
 There is no hardware flow control. PIO captures each selected write into an
 eight-word FIFO, which is ample for `POKE` traffic; a tightly optimised 6502
