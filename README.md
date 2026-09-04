@@ -9,8 +9,9 @@ Drive it from BASIC with `POKE`.
 ![Perfect Paul II installed in an Apple IIe](images/card-in-slot.jpg)
 
 **Status: working on real hardware.** Both the PWM and the I2S builds have been
-verified end to end in an Apple IIe, now on a fabricated prototype PCB. The card
-announces itself out loud at power-up. A further board revision is planned.
+verified end to end in an Apple IIe, on a fabricated prototype PCB. The card
+announces itself out loud at power-up. A second board revision is designed and
+awaiting fabrication.
 
 ## Contents
 
@@ -30,6 +31,7 @@ announces itself out loud at power-up. A further board revision is planned.
   - [Pico connections](#pico-connections)
   - [Power wiring](#power-wiring)
   - [Bill of materials for the bus interface](#bill-of-materials-for-the-bus-interface)
+  - [Revision 2 designators](#revision-2-designators)
 - [Build](#build)
   - [Talking to it from a terminal](#talking-to-it-from-a-terminal)
   - [If the build fails to link](#if-the-build-fails-to-link)
@@ -38,13 +40,16 @@ announces itself out loud at power-up. A further board revision is planned.
   - [What the hand-wired prototype used](#what-the-hand-wired-prototype-used)
   - [What the PCB uses](#what-the-pcb-uses)
   - [Selecting between the PAM and the MAX98357A outputs](#selecting-between-the-pam-and-the-max98357a-outputs)
-  - [The SW1 gain selector can short the 5 V rail](#the-sw1-gain-selector-can-short-the-5-v-rail)
+  - [The gain selector](#the-gain-selector)
 - [Demo programs](#demo-programs)
   - [Changing the slot](#changing-the-slot)
   - [Nothing to change in the firmware](#nothing-to-change-in-the-firmware)
   - [Inline command gotcha](#inline-command-gotcha)
 - [First power-up checks](#first-power-up-checks)
-- [Notes for a PCB revision](#notes-for-a-pcb-revision)
+- [Board revisions](#board-revisions)
+  - [Fixed in revision 2](#fixed-in-revision-2)
+  - [Still open for a third revision](#still-open-for-a-third-revision)
+  - [Layout notes, unchanged](#layout-notes-unchanged)
 - [Licensing](#licensing)
 - [Validation status](#validation-status)
   - [Software exercised on the card](#software-exercised-on-the-card)
@@ -133,7 +138,7 @@ because two of the positions would otherwise short 5 V to ground.
 and **the Gerbers will be published here** once that version has been built and
 tested. Nothing about this first board is a released design - it exists to prove
 the circuit, which it now has. Layout notes and the known gaps to fix are in
-[Notes for a PCB revision](#notes-for-a-pcb-revision) below.
+[Board revisions](#board-revisions) below.
 
 <img src="images/card-pcb.jpg" width="700">
 
@@ -397,8 +402,8 @@ Firmware disables pulls on GP0-GP7 and enables the internal pull-up only on GP8.
 #### Reset button
 
 `RUN` is **physical pin 30**. Ground it momentarily to reset the RP2040; release
-and the card reboots and speaks its ready message again. That is the whole
-circuit:
+and the card reboots and speaks its ready message again. Revision 2 fits this as
+`SW1` with `C6`; revision 1 has neither. That is the whole circuit:
 
 ```
 Pico RUN (pin 30) --+----o  o----+-- GND
@@ -481,8 +486,9 @@ goes over USB CDC.
 
 ```
 Apple +5 V ---->|---- CARD_5V -----------> Pico VSYS pin 39
- (slot pin 25) D1                          MAX98357A VIN, if used
-               anode -> cathode            PAM8403 5V, if used
+ (slot pin 25) D1                          MAX98357A VIN
+  /VCC_APPLE   anode -> cathode   VCC      PAM8403 5V
+                                           R6, R7 to GAIN
 
 Pico 3V3_OUT pin 36 --------------------> U2 pin 20
                                           U3 VCC
@@ -516,6 +522,19 @@ the card rather than an unused pin.
 Place 10-47 uF bulk capacitance from `CARD_5V` to ground near the Pico and audio
 module. Keep speaker current modest when it is drawn from the Apple slot.
 
+**Everything the card powers belongs on the cathode side.** That is the whole
+point of D1, and it is easy to get backwards: the anode is upstream, on the
+Apple's rail, and the cathode is downstream, on the card's own. If the
+amplifiers sit upstream they are dead whenever the card runs on USB out of the
+slot, which breaks bench testing — and the Pico would then be driving I2S clocks
+into an unpowered MAX98357A, forward-biasing its input protection into a dead
+supply. In revision 2 the schematic labels these `/VCC_APPLE` (anode, two nodes:
+`D1` and slot pin 25) and `VCC` (cathode, everything else).
+
+On the assembled board the check is visual: **the band on D1 faces the Pico**,
+away from the slot connector. The band is the cathode, in the symbol and on the
+part.
+
 ### Bill of materials for the bus interface
 
 | Ref | Quantity | Part | Notes |
@@ -533,6 +552,31 @@ Deleted relative to the 74LS revision: RN1 (eight 4.7 kOhm series resistors), R9
 
 A MAX98357A-style I2S amplifier module and speaker are additional audio parts,
 not part of the Apple bus interface itself.
+
+### Revision 2 designators
+
+The table above uses the hand-wired card's reference designators. **The
+fabricated boards use different ones**, and revision 2 moved some again, so read
+the silkscreen rather than either table:
+
+| Function | Hand-wired | Revision 1 | Revision 2 |
+|---|---|---|---|
+| Pico | `U1` | `A1` | `A1` |
+| '245 transceiver | `U2` | `U2` | `U2` |
+| '32 strobe gate | `U3` | `U1` | `U1` |
+| `/DEVSEL`, `R/W` pull-ups | `R10`, `R11` | `R1`, `R2` | `R1`, `R2` |
+| 3.3 V decoupling | `C1`, `C2` | `C4`, `C5` | `C4`, `C5` |
+| Supply Schottky | `D1` | *absent* | `D1` |
+| PWM filter | — | `R3`/`R4`, `C1`/`C2`, `C3` | unchanged |
+| Volume trimmer | — | `RV1` | `RV1` |
+| Gain selector | — | `SW1` (5-way) | **`SW2`** (4-way) |
+| Gain resistors | — | `R5`, `R6` | `R5`, `R6`, **`R7`** |
+| Reset button | — | *absent* | **`SW1`** + `C6` |
+| Speaker selector | — | *absent* | **`J7`** |
+
+Note especially that **`SW1` means the gain DIP on revision 1 and the reset
+button on revision 2**. `C1`/`C2`/`C3` are audio parts on both boards, not
+decoupling.
 
 ## Build
 
@@ -642,25 +686,23 @@ filtering hard costs nothing. Two poles near 7 kHz, then a DC block into a
 volume trimmer:
 
 ```
-GP28 --[R3 1k]--+--[R4 1k]--+--| |--+
-                |           |   C3  |
-             C1 22nF     C2 22nF   NP       RV1 20k ---> PAM8403 L and R in
-                |           |                |
-               GND         GND              GND
+GP28 --[R3 1k]--+--[R4 1k]--+--|(--+
+                |           |  C3  |
+             C1 22nF     C2 22nF  10uF      RV1 20k ---> PAM8403 L and R in
+                |           |  + on the      |
+               GND         GND  filter side GND
 ```
 
 | Ref | Value | Function |
 |---|---|---|
 | R3, R4 | 1 kΩ | Series elements of the two-pole low-pass |
 | C1, C2 | 22 nF | Shunt legs, 1/(2π·1k·22n) = 7.2 kHz per section |
-| C3 | 1 µF or more, **non-polarised** | DC block; the PWM node idles around 1.65 V |
+| C3 | 10 µF, **`+` toward the filter** | DC block; the PWM node idles around 1.65 V |
 | RV1 | 20 kΩ | Volume trimmer, wiper into the PAM8403 |
 
-Designators follow `perfectpaul2.net`, the fabricated board. **They do not match
-the bill of materials above**, which was written for the hand-wired card: on the
-PCB the Pico is `A1`, the '245 is `U2`, the '32 is `U1`, the two pull-ups are
-`R1`/`R2`, and the 3.3 V decoupling is `C4`/`C5`. `C1`, `C2` and `C3` here are
-audio parts, not decoupling. Read the silkscreen, not the older table.
+Designators follow `perfectpaul2.net`. `C1`, `C2` and `C3` here are audio parts,
+not decoupling — see the revision 2 designator table above, and read the
+silkscreen rather than either list.
 
 `RV1` at 20 kΩ is high enough against the 1 kΩ series elements not to disturb
 the filter. Note the two RC sections are unbuffered and load each other, so the
@@ -702,12 +744,13 @@ one, but it assumes the *downstream* stage carries the bias, which is the usual
 case when feeding a directly-coupled input sitting at mid-rail. Here it does
 not: the pot shorts that end to ground, and the bias is entirely upstream.
 
-#### Better: do not use a polarised part here at all
+#### A non-polarised part would remove the question entirely
 
-The bias is only 1.65 V and the audio swings around it, so this is a marginal
-application for an electrolytic even when oriented correctly. **Fit a
-non-polarised part and the question disappears** rather than having to be
-documented.
+Revision 2 keeps a polarised 10 uF, oriented correctly, which works. But the
+bias is only 1.65 V and the audio swings around it, so this is a marginal
+application for an electrolytic even the right way round, and the orientation
+stays something every future rework has to get right. **A non-polarised part
+removes the question** rather than documenting it.
 
 The value is not critical, and 10 uF was never the problem here - the polarity
 was. `C3` works against `RV1`'s 20 kOhm as a high-pass, and every plausible
@@ -745,23 +788,37 @@ module *power* grounds are already commoned through the card ground and must
 stay that way - but the speaker `-` lines are a different signal entirely, and
 share only a name.
 
-Use a genuine two-pole switch, one pole per speaker lead:
+Both leads must therefore be switched. Revision 2 does it with `J7`, a 2x3 pin
+header carrying two shunts — cheaper than a DPDT switch and, unlike one, with no
+make-before-break transition that could bridge both amplifiers on the way past.
+
+The middle row is the speaker; each outer row is one amplifier. With KiCad's
+odd/even pad numbering the left column is pins 1, 3, 5 and the right column
+2, 4, 6:
 
 ```
-MAX98357A OUT+ ---o
-                      \
-PAM8403    LOUT+ ---o   o--- speaker +      pole 1
- 
-MAX98357A OUT- ---o
-                      \
-PAM8403    LOUT- ---o   o--- speaker -      pole 2
+        left column      right column
+ row 1   1  I2S-          2  I2S+       MAX98357A
+ row 2   3  SPK-          4  SPK+       to the speaker
+ row 3   5  PAM-          6  PAM+       PAM8403
 ```
 
-Specify **break-before-make**, which ordinary toggle and slide switches are.
-A make-before-break part would briefly connect both amplifiers' outputs together
-during the transition, which is exactly the case above. A 2x3 pin header with
-two shunts works equally well and is cheaper, at the cost of moving two jumpers
-instead of one switch.
+| To select | Fit shunts |
+|---|---|
+| **I2S** (MAX98357A) | 1-3 and 2-4 |
+| **PWM** (PAM8403) | 3-5 and 4-6 |
+
+Two shunts, one per column, both leads switched, and the two amplifiers' outputs
+never meet.
+
+**Both must go vertically, within a column.** A 0.1 inch shunt fits horizontally
+too, and every horizontal position is destructive: 1-2 shorts the MAX98357A's
+own two outputs, 5-6 the PAM's, and 3-4 shorts the speaker leads together across
+whichever amplifier is selected. Fitting all four shunts commons both amplifiers,
+which is the case this header exists to prevent. Silkscreen the two valid
+positions and label them, the way the gain switch is labelled.
+
+If you use a switch instead, specify **break-before-make**.
 
 Both amplifiers idle with their outputs switching even with no input, so this
 selection is real work rather than a convenience: it is not enough to rely on
@@ -772,27 +829,37 @@ powered into an open circuit is harmless.
 available if you would rather also mute the unused amplifier - it needs a third
 pole, or a separate jumper.
 
-### The SW1 gain selector can short the 5 V rail
+### The gain selector
 
-`SW1` is a 5-position DIP where each position ties the MAX98357A's `GAIN` pin to
-a different place. In KiCad's `SW_DIP_x05`, position *N* bridges pin *N* to pin
-*11-N*, which gives:
+The MAX98357A picks one of five gains from what its `GAIN` pin is tied to.
+Revision 2 uses `SW2`, a 4-position DIP; in KiCad's `SW_DIP_x04` position *N*
+bridges pin *N* to pin *9-N*:
 
-| Position | Connects `GAIN` to | MAX98357A gain |
+| Position | Connects `GAIN` to | Gain |
 |---:|---|---|
-| 1 | GND via `R5` | 15 dB |
+| 1 | GND via `R5` 100 kOhm | 15 dB |
 | 2 | GND directly | 12 dB |
-| 3 | nothing (floating) | 9 dB |
-| 4 | 5 V directly | 6 dB |
-| 5 | 5 V via `R6` | 3 dB |
+| 3 | 5 V via `R7` **1 kOhm** | 6 dB |
+| 4 | 5 V via `R6` 100 kOhm | 3 dB |
+| *none closed* | floating | 9 dB |
 
-Exactly one is meant to be closed. **Closing 2 and 4 together is a dead short
-from 5 V to ground** through two switch contacts, with the Apple II's supply
-behind it: enough to weld the contacts or lift a trace. Today only the
-silkscreen prevents it.
+**Four switches cover all five settings**, because "floating" is simply what you
+get with every switch open. Revision 1 spent a fifth position tying `GAIN` to an
+unconnected pin, which is the same state reached by closing nothing.
 
-Combinations involving `R5` or `R6` are harmless, because those legs are
-current-limited by 100 kOhm. 2+4 is the only fatal pair.
+#### Why R7 is there
+
+Revision 1 wired position 4 **directly** to 5 V and position 2 directly to
+ground. Closing both was a dead short from 5 V to ground through two switch
+contacts, with the Apple II's supply behind it — enough to weld the contacts or
+lift a trace, and only the silkscreen stood in the way. Combinations involving
+`R5` or `R6` were always harmless, being limited by 100 kOhm; 2+4 was the single
+fatal pair.
+
+`R7` breaks it. With 1 kOhm in the 5 V leg the worst case becomes 5 V / 1 kOhm =
+**5 mA**, which nothing notices, and no combination of positions can short the
+rail any more. One resistor in either direct leg is enough — 5 V to `SW2` pin 6,
+or `SW2` pin 7 to ground — and revision 2 puts it in the 5 V leg.
 
 #### Why a diode does not fix it
 
@@ -802,20 +869,10 @@ A diode blocks *reverse* current, and this fault is forward. In series with the
 0.7 V drop. It would also pull the "tied to V_DD" level down by that 0.7 V and
 blur the very threshold the gain detection depends on. Wrong tool.
 
-#### One resistor fixes it
+#### Does 1 kOhm move the gain setting?
 
-Put **1 kOhm in series with either of the two direct legs** - between 5 V and
-`SW1` pin 7, or between `SW1` pin 9 and ground. Either one breaks the metallic
-path, so only one is needed:
-
-```
-5V ---[1k]--- SW1 pin 7   (position 4, "direct" to VDD)
-```
-
-Worst case becomes 5 V / 1 kOhm = 5 mA, which nothing notices.
-
-**Does it move the gain setting?** It has to be checked rather than assumed,
-because the resistor sits directly in the network the part senses. `GAIN` cannot
+It has to be checked rather than assumed, because the resistor sits directly in
+the network the part senses. `GAIN` cannot
 be a plain logic input - it has to tell five states apart, one of which is
 *floating* - so it must have an internal pull-up and pull-down to V_DD and GND,
 equal, putting a floating pin at mid-rail. Call each one R_int. The five states
@@ -846,18 +903,14 @@ The value matters, and its error pushes toward the adjacent state:
 | 100 kOhm | - | 0.667 x V_DD | This *is* the 3 dB setting |
 
 This is reasoned from how the pin must work, not read off the datasheet. Confirm
-against the MAX98357A gain table, and verify empirically: fit the resistor,
-select position 4, and check the loudness is unchanged from before it was
-fitted. If in doubt, use the selector below and the question disappears.
+against the MAX98357A gain table, and check it by ear on the first board:
+select position 3 and listen for the same loudness a direct connection gave.
 
-#### The structural fix
-
-Better still, make the bad state unreachable. `GAIN` needs one of five mutually
-exclusive states, which is a **selector**, not five independent switches. A
-6-pin SIL header with a single jumper shunt, or a 1-pole 5-throw rotary, cannot
-express "two at once" at all, and costs less board area than the DIP. That
-removes the failure mode rather than current-limiting it, and is the
-recommended change for the next revision.
+A true **selector** — a 6-pin SIL header with one shunt, or a 1-pole 5-throw
+rotary — would make the bad state unreachable rather than merely harmless, and
+would sidestep this analysis entirely. `R7` was the cheaper change to an
+existing DIP layout. If a third revision reworks that corner of the board, the
+selector is the better answer.
 
 **I2S** (GP20/21/22) needs no code change — a MAX98357A drives a speaker
 directly, and a PCM5102 would give line out with negligible slot current. This
@@ -973,34 +1026,43 @@ particular on the first PCB.
 6. Confirm GP0-GP7 match the written byte while GP8 is low, before connecting
    the speaker.
 
-## Notes for a PCB revision
+## Board revisions
 
-A first prototype PCB has been fabricated and works, with the SOIC parts
-soldered directly rather than on the breakout adapters the hand-wired card used.
-The notes below were written against that hand-wired card and are kept for the
-next revision - a few things are worth designing in rather than discovering:
+**Revision 1** was fabricated and works; it is the board in the photograph above
+and the one every hardware result on this page was obtained with.
 
-- **Fit the reset button.** `RUN` (pin 30) to GND through a momentary switch,
-  optionally with 100 nF in parallel with the switch, not in series. See the
-  Reset button section above. It is
-  absent from the first prototype, where reflashing means unplugging USB.
-- **Add `D1`.** It is specified in the power section but absent from
-  `perfectpaul2.net`, so Apple +5 V currently reaches `VSYS` undioded.
-- **Give `R5`/`R6` real values.** They are unset in the netlist; the MAX98357A
-  gain table wants 100 kOhm for the through-resistor positions.
-- **Make `SW1` incapable of shorting the rail.** See the section below. Note a
-  **4-position** DIP is sufficient for all five gain settings: position 3 in the
-  current design ties `GAIN` to an unconnected pin, which is identical to
-  leaving every switch open. Dropping it costs nothing and all-open becomes the
-  9 dB floating default.
-- **Select the speaker between the two amplifiers with a two-pole switch.** See
-  the section on that below - the `-` outputs must be switched too.
-- **Make `C3` non-polarised.** As netlisted the 10 uF electrolytic sits reverse
-  biased by about 1.65 V, because the bias in this circuit is upstream rather
-  than downstream. The value is not critical - anything from 1 uF up puts the
-  corner far below DECtalk's roughly 80 Hz floor - so fit whatever non-polarised
-  part is available and the polarity question disappears. See the audio output
-  stage section above for the derivation.
+**Revision 2 is designed but not yet fabricated.** Its schematic addresses
+everything below that revision 1 got wrong or left out. Nothing about it has
+been built or tested, and the Gerbers will be published here once it has been.
+
+### Fixed in revision 2
+
+| Change | Was |
+|---|---|
+| `D1` 1N5817 fitted, anode to slot pin 25, cathode to `VSYS` and both amplifier supplies | absent, so Apple +5 V reached `VSYS` undioded |
+| `SW1` + `C6` 100 nF reset button on `RUN` pin 30 | absent; reflashing meant unplugging USB |
+| Gain selector is `SW2`, 4-position, with `R7` 1 kOhm in the 5 V leg | 5-position, two directly-tied legs, one pair of which shorted the rail |
+| `R5`, `R6` given values (100 kOhm) | unset in the netlist |
+| `J7` 2x3 header selects the speaker between both amplifiers | no selection; flying leads |
+| `C3` oriented `+` toward the filter | reverse biased by about 1.65 V |
+| `RV1` 20 kOhm, matching the fitted part | schematic said 50 kOhm |
+| `U1`/`U2` valued `74LVC32` / `74LVC245` | valued as 74LS parts |
+| `C4`, `C5`, `C6` valued 100 nF | unset |
+
+### Still open for a third revision
+
+- **A true gain selector** rather than a DIP made safe by `R7` — a 6-pin SIL
+  header with one shunt, or a rotary. See the gain selector section.
+- **A non-polarised `C3`**, which removes the orientation constraint instead of
+  documenting it.
+- **Slot `/RES` to `RUN`** through one of the spare `74LVC32` gates, if the
+  ready message should repeat on Ctrl-Reset rather than only at power-up. Keep
+  any reset button on the gate's *input* side, or it shorts the gate output.
+  Measure how long DECtalk takes to re-initialise first: the card is deaf for
+  that window on every Ctrl-Reset.
+
+### Layout notes, unchanged
+
 - **Fit series termination footprints on all nine bus signals** and populate
   them with 0 Ohm links. LVC switches in 1-2 ns, and reflections start to
   matter beyond roughly 5 cm of unterminated trace. On a compact card you will
@@ -1021,6 +1083,8 @@ next revision - a few things are worth designing in rather than discovering:
   a ground shared with the whole machine's switching.
 - **Silkscreen the VSYS pin.** Card power goes to Pico pin 39, and pin 40 is
   VBUS. Labelling it on the board is cheaper than the failure.
+- **Silkscreen `J7`'s two valid shunt positions**, and `D1`'s band direction.
+  Both are assembly mistakes the netlist cannot prevent.
 - Verify the edge connector finger numbering against an Apple II reference
   before fabrication, remembering that the data pins run backwards: D7 on slot
   pin 42 through D0 on slot pin 49.
@@ -1128,12 +1192,13 @@ directory and a copy on the Floppy Emu SD card. Deploying means updating both.
 
 ### Not yet verified on hardware
 
-- **The next PCB revision.** The signal-integrity reasoning below was first
-  worked out for the hand-wired board. The prototype PCB works, so it is no
-  longer untested in copper, but it has not been measured, and known gaps are
-  carried forward: `D1` is absent from `perfectpaul2.net`, so Apple +5 V reaches
-  `VSYS` undioded; `R5`/`R6` have no value assigned; and nothing but the
-  silkscreen prevents `SW1` positions 2 and 4 from shorting 5 V to ground.
+- **Revision 2, entirely.** It is designed but not fabricated. Every hardware
+  result on this page came from revision 1, and nothing about revision 2's
+  schematic changes — the supply diode, the reset button, the reworked gain
+  switch, the speaker selector — has been built or measured.
+- **Revision 1's signal integrity.** The reasoning was first worked out for the
+  hand-wired board. Revision 1 works, so it is no longer untested in copper, but
+  it has not been instrumented.
 - Long-run stability, thermal behaviour, and slot current under sustained use.
 - Logic-analyzer timing capture of `/DEVSEL`, `R/W`, `/WRSEL`, and D0-D7. The
   interface demonstrably works, but the actual margin at the end of the write
