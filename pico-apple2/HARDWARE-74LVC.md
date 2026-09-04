@@ -1,8 +1,11 @@
 # Perfect Paul ][ - hardware reference (74LVC revision)
 
-Hardware reference for the 3.3 V level-translating interface. This supersedes
-`HARDWARE-74LS.md`, which documented the revision-2 through-hole interface built
-from 5 V parts and series current-limiting resistors.
+Hardware reference for the 3.3 V level-translating interface, and the only
+interface this project supports. An earlier revision-2 design used 5 V 74LS
+parts with series current-limiting resistors; it is retired and its document has
+been removed. Comparisons to it below are kept because they explain why this
+design has no series resistors, not because it remains an option. The old
+reference is still in git history if you need it.
 
 ## Electrical approach
 
@@ -222,6 +225,7 @@ These are the only Pico pins the card uses. Everything else is left unconnected.
 | PWM audio alternative | GP28 | 34 | RC low-pass to line out |
 | 3.3 V supply out | 3V3_OUT | 36 | U2 pins 1 and 20, U3 pin 14, R10, R11 |
 | Card power in | VSYS | 39 | `CARD_5V`, the cathode of D1 |
+| Reset button | RUN | 30 | Momentary switch to GND, optional |
 | Bus signal ground | GND | 3, 8, 13 | Common ground |
 | Power / audio ground | GND | 28, 38 | Common ground |
 
@@ -229,6 +233,40 @@ GP25 is the on-board LED the firmware uses as a ready indicator. It is not
 brought out to a header pin and needs no wiring.
 
 Firmware disables pulls on GP0-GP7 and enables the internal pull-up only on GP8.
+
+### Reset button
+
+`RUN` is **physical pin 30**. Ground it momentarily to reset the RP2040; release
+and the card reboots and speaks its ready message again. That is the whole
+circuit:
+
+```
+Pico RUN (pin 30) ----o  o---- GND
+                    momentary
+```
+
+`RUN` has an internal pull-up of about 50 kOhm, so no external pull-up is
+needed. A 100 nF capacitor from `RUN` to GND is the usual optional addition; it
+debounces the switch and is worth having on a board that lives inside a machine
+full of switching noise.
+
+Two things make this worth fitting:
+
+- **`BOOTSEL` + reset replaces unplugging USB.** Hold `BOOTSEL`, tap reset,
+  release `BOOTSEL`, and the card enumerates as the bootloader drive. On a card
+  that gets reflashed often, that is the difference between a two-second
+  operation and pulling it out of the slot.
+- The Apple II's own reset does **not** reach the card. Slot pin 31 (`/RES`) is
+  not wired to anything, so Ctrl-Reset leaves the Pico running.
+
+Do not confuse `RUN` with pin 37, `3V3_EN`, two pins away. Grounding **that**
+disables the Pico's regulator and takes `U2` and `U3` down with it, because they
+are powered from `3V3_OUT`.
+
+If you ever do wire slot `/RES` to `RUN` through one of the spare `74LVC32`
+gates, keep the button on the **gate's input side**. A button straight onto
+`RUN` would otherwise short the gate's output to ground whenever it is driving
+high.
 
 ### Pins to leave strictly alone
 
@@ -366,6 +404,19 @@ soldered directly rather than on the breakout adapters the hand-wired card used.
 The notes below were written against that hand-wired card and are kept for the
 next revision - a few things are worth designing in rather than discovering:
 
+- **Fit the reset button.** `RUN` (pin 30) to GND through a momentary switch,
+  optionally with 100 nF across it. See the Reset button section above. It is
+  absent from the first prototype, where reflashing means unplugging USB.
+- **Add `D1`.** It is specified in the power section but absent from
+  `perfectpaul2.net`, so Apple +5 V currently reaches `VSYS` undioded.
+- **Give `R5`/`R6` real values.** They are unset in the netlist; the MAX98357A
+  gain table wants 100 kOhm for the through-resistor positions.
+- **Make `SW1` incapable of shorting the rail.** Positions 2 and 4 tie `GAIN`
+  directly to GND and to 5 V respectively, so closing both is a dead short. Only
+  the silkscreen prevents it today; one series resistor in the 5 V leg would
+  make it impossible.
+- **Check `C3`'s polarity**, which as netlisted sits reverse biased by about
+  1.65 V. See the audio output stage section above.
 - **Fit series termination footprints on all nine bus signals** and populate
   them with 0 Ohm links. LVC switches in 1-2 ns, and reflections start to
   matter beyond roughly 5 cm of unterminated trace. On a compact card you will

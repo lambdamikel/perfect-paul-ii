@@ -27,8 +27,8 @@ This revision uses 3.3 V LVC logic as a proper level translator:
 - **no series resistors anywhere**
 
 See `HARDWARE-74LVC.md` for the complete pin-by-pin wiring and power diagram.
-`HARDWARE-74LS.md` documents the retired revision-2 interface built from 5 V
-parts and series current-limiting resistors.
+The earlier 5 V 74LS interface is retired and no longer documented; 74LVC is the
+only supported build.
 
 ## Important electrical point
 

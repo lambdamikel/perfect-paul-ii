@@ -15,6 +15,17 @@
 - The I2S self test skips the PWM build's 96 MHz `set_sys_clock_khz()` and runs
   at the SDK default, matching the firmware, because `pico_audio_i2s` derives
   its own dividers from `clk_sys`.
+- Documented the optional **reset button**: `RUN`, physical pin 30, momentary to
+  GND. Also documents `BOOTSEL` + reset as the way to reach the bootloader
+  without unplugging USB, and warns off pin 37 (`3V3_EN`) two pins away, which
+  would take `U2` and `U3` down with the regulator.
+- Collected the outstanding hardware gaps - missing `D1`, unset `R5`/`R6`, the
+  `SW1` short, and `C3`'s polarity - into the PCB revision notes rather than
+  leaving them scattered.
+- **Retired the 74LS interface.** 74LVC is now the only supported build, and
+  `HARDWARE-74LS.md` has been removed - it is still in git history. The
+  comparative notes in `HARDWARE-74LVC.md` are kept, since they are what explain
+  why the current design has no series resistors anywhere.
 - **The card now says "Perfect Paul Two ready." on power-up**, with "perfect"
   spelled phonemically as `[prrfihkt]`. The word is absent from
   `dic/dtalk_us.dic`, so it fell through to the letter-to-sound rules and was

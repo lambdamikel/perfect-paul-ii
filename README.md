@@ -85,8 +85,12 @@ PAM8403 class-D module for the PWM path, and the Pico. Both audio backends are
 populated at once with the speaker on flying leads, so either can be compared
 against the other — which is exactly how the I2S path was brought up. The red
 DIP switches set the MAX98357A's gain, and the silkscreen reads **SET ONLY ONE**
-because two of the positions would otherwise short 5 V to ground. A further
-revision is planned; layout notes are in
+because two of the positions would otherwise short 5 V to ground.
+
+**This is the first prototype board only.** A second revision is in progress,
+and **the Gerbers will be published here** once that version has been built and
+tested. Nothing about this first board is a released design - it exists to prove
+the circuit, which it now has. Layout notes and the known gaps to fix are in
 [pico-apple2/HARDWARE-74LVC.md](pico-apple2/HARDWARE-74LVC.md).
 
 <img src="images/card-pcb.jpg" width="700">
@@ -135,6 +139,29 @@ Requires Pico SDK 2.x and pico-extras. Two executables are produced:
 - `dectalk_apple2.uf2` — the card firmware
 - `dectalk_selftest.uf2` — speaks a phrase loop with no Apple II and no slot
   wiring attached, for bringing up the audio path on its own
+
+Build the self test with the **same preset as the firmware**. It follows
+`DECTALK_AUDIO_I2S`, so a self test built for the other backend is silent by
+construction and tells you nothing about the one you are actually using.
+
+### Talking to it from a terminal
+
+The firmware keeps USB CDC as a bench input using the same line protocol as the
+slot, so you can drive the card with no Apple II attached. `tools/paul-say.sh`
+wraps that:
+
+```bash
+./tools/paul-say.sh "Hello from the terminal."
+./tools/paul-say.sh                 # interactive, Ctrl-D to quit
+./tools/paul-say.sh -l              # just listen to the card's output
+```
+
+It is the fastest way to audition DECtalk phrasing, including phoneme
+spellings, without rebuilding and reflashing. If you would rather use minicom:
+turn **hardware flow control off**. It defaults to on, the Pico's CDC never
+asserts CTS, and the card then ignores everything you type and looks dead.
+Never open the port at 1200 baud either - that is the Pico's BOOTSEL-reset
+trigger.
 
 ### If the build fails to link
 
@@ -336,8 +363,9 @@ reasoning in the hardware notes was worked out for the hand-wired card and is
 still reasoned rather than instrumented. Three known gaps carry into the next
 revision: `D1` is absent from the netlist, so Apple +5 V reaches `VSYS`
 undioded; the `R5`/`R6` gain resistors have no assigned value; and nothing but
-the silkscreen stops two `SW1` positions shorting 5 V to ground. Board files are
-still work in progress.
+the silkscreen stops two `SW1` positions shorting 5 V to ground. A second board
+revision is in progress and its Gerbers will be published here once it has been
+built and tested.
 
 There is no hardware flow control. PIO captures each selected write into an
 eight-word FIFO, which is ample for `POKE` traffic; a tightly optimised 6502
