@@ -15,8 +15,10 @@ session — see the two demo programs below. The tested card is a fabricated
 prototype PCB carrying both audio backends at once; a further revision is
 planned.
 
-Both the PWM and the I2S build have been run on hardware. See `VALIDATION.md`
-for exactly what has and has not been verified.
+Both the PWM and the I2S build have been run on hardware. The **Validation
+status** section of the repository README, at
+<https://github.com/lambdamikel/perfect-paul-ii>, records exactly what has and
+has not been verified.
 
 This revision uses 3.3 V LVC logic as a proper level translator:
 
@@ -377,5 +379,5 @@ bidirectional data interface and read-cycle handling, increasing hardware.
 All 16 device addresses are mirrors and there is no slot ROM. This is
 intentional: it minimizes hardware and works directly from BASIC.
 
-See `VALIDATION.md` for the verification boundary and `LICENSE-NOTE.md` before
-redistributing source or UF2 binaries.
+See the repository README for the verification boundary, and `LICENSE-NOTE.md`
+before redistributing source or UF2 binaries.

@@ -26,7 +26,9 @@
   `HARDWARE-74LS.md` has been removed - it is still in git history. The
   comparative notes in the hardware reference are kept, since they are what
   explain why the current design has no series resistors anywhere.
-- Consolidated `HARDWARE-74LVC.md` into the repository README and removed it.
+- Consolidated `HARDWARE-74LVC.md` and `VALIDATION.md` into the repository
+  README and removed them. The bring-up checklist existed in both, near
+  identically, as did the verified/not-yet-verified summary.
   The bus interface, the audio stage and the PCB notes had been described in up
   to three places, and only some copies were being kept current.
 - **The card now says "Perfect Paul Two ready." on power-up**, with "perfect"
