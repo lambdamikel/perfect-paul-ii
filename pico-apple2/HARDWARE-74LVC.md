@@ -478,12 +478,43 @@ path, so only one is needed:
 5V ---[1k]--- SW1 pin 7   (position 4, "direct" to VDD)
 ```
 
-Worst case becomes 5 V / 1 kOhm = 5 mA, which nothing notices. The gain setting
-still reads correctly because the MAX98357A distinguishes "direct" from "via
-100 kOhm" against an internal network of that same order: 1 kOhm is one percent
-of 100 kOhm, so a direct connection still looks direct. Do not scale it up to
-10 kOhm or beyond without checking the gain by ear - at that point it starts to
-approach the 100 kOhm setting it is supposed to be distinct from.
+Worst case becomes 5 V / 1 kOhm = 5 mA, which nothing notices.
+
+**Does it move the gain setting?** It has to be checked rather than assumed,
+because the resistor sits directly in the network the part senses. `GAIN` cannot
+be a plain logic input - it has to tell five states apart, one of which is
+*floating* - so it must have an internal pull-up and pull-down to V_DD and GND,
+equal, putting a floating pin at mid-rail. Call each one R_int. The five states
+then sit at 0, a third, a half, two thirds and 1 x V_DD, and that spacing only
+works if R_int is the same order as the external 100 kOhm: at 10 kOhm the
+100 kOhm setting would land at 0.476 V_DD against floating's 0.5 and be
+indistinguishable. So R_int is somewhere around 30-300 kOhm.
+
+A 1 kOhm series resistor parallels the internal pull-up, giving:
+
+| R_int | `GAIN` voltage with 1 kOhm fitted |
+|---|---|
+| 100 kOhm | 0.990 x V_DD |
+| 30 kOhm (worst plausible) | 0.969 x V_DD |
+
+against a threshold that must fall near 0.83 x V_DD, between the two-thirds and
+full-scale states. So the setting still reads as "direct" - not because 1 kOhm
+is a small fraction of 100 kOhm, but because the margin to the neighbouring
+state is about 15% of V_DD and the resistor consumes 1-3% of it.
+
+The value matters, and its error pushes toward the adjacent state:
+
+| Series R | Fault current | `GAIN` voltage | Verdict |
+|---|---|---|---|
+| 100 Ohm | 50 mA, 250 mW | 0.999 x V_DD | Gain untouched, but needs a 0.5 W part |
+| 1 kOhm | 5 mA, 25 mW | 0.990 x V_DD | Recommended |
+| 10 kOhm | 0.5 mA | 0.917 x V_DD | Reads correctly, half the margin spent |
+| 100 kOhm | - | 0.667 x V_DD | This *is* the 3 dB setting |
+
+This is reasoned from how the pin must work, not read off the datasheet. Confirm
+against the MAX98357A gain table, and verify empirically: fit the resistor,
+select position 4, and check the loudness is unchanged from before it was
+fitted. If in doubt, use the selector below and the question disappears.
 
 ### The structural fix
 
