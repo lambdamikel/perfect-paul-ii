@@ -323,8 +323,8 @@ static apple2_bus_t apple2_bus_init(void) {
     // It is NOT what keeps a bench-powered card idle any more. U3 now runs
     // from the Pico's 3.3 V rail, so it stays live with the Apple II off, and
     // its floating /DEVSEL and R/W inputs could assert /WRSEL on their own.
-    // The pull-ups on those two gate inputs are what prevent that -- see
-    // HARDWARE-74LVC.md.
+    // The pull-ups on those two gate inputs are what prevent that -- see the
+    // hardware reference in the repository README.
     for (uint pin = APPLE2_DATA_BASE_GPIO;
          pin < APPLE2_WRITE_STROBE_GPIO;
          ++pin) {
