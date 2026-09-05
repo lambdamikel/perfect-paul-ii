@@ -67,10 +67,13 @@ awaiting fabrication.
 
 ## Watch it
 
-[![Perfect Paul II - A New Speech Synthesizer For The Apple II](https://i.ytimg.com/vi/u6aQdsFBBXw/hqdefault.jpg)](https://youtu.be/u6aQdsFBBXw)
+[![Perfect Paul II on real hardware](https://i.ytimg.com/vi/QXe7LpF3Q8w/hqdefault.jpg)](https://youtu.be/QXe7LpF3Q8w)
 
-**[Perfect Paul II - A New Speech Synthesizer For The Apple II](https://youtu.be/u6aQdsFBBXw)**
-— the card talking, singing *Daisy Bell*, and running ELIZA on real hardware.
+**[Perfect Paul II on real hardware](https://youtu.be/QXe7LpF3Q8w)** — the
+latest demo.
+
+Earlier: **[Perfect Paul II - A New Speech Synthesizer For The Apple II](https://youtu.be/u6aQdsFBBXw)**
+— the card talking, singing *Daisy Bell*, and running ELIZA.
 
 ## Talking to it
 
