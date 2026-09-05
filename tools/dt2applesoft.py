@@ -23,42 +23,64 @@ MAX_UTT = 254                             # firmware truncates beyond this
 MAX_LINE = 239                            # Applesoft input line limit
 
 def tokenize(body):
-    """Split a phoneme run into whole tokens: NAME<dur[,pitch]>, or bare text."""
-    return re.findall(r'[^\s<]*?<\d+(?:,\d+)?>|\S+', body)
+    """Split a phoneme run into WORDS - whitespace-delimited units.
 
-def split_run(tokens, budget, window=0.55):
-    """Group tokens into utterances.
-
-    The budget is a hard ceiling, but *where* inside it we break decides how the
-    result sounds. A file with rests tells us where the phrases end; many do not,
-    and then the seam lands wherever the character count happens to run out,
-    which is as likely to be mid-word as not.
-
-    Heuristic: among the break points in the last `window` of a full chunk,
-    break after the token carrying the longest duration. A long note is usually
-    the end of a sung phrase, so the seam falls where a singer would breathe.
+    A word like IH<250,24>N is one word ("in"): the timing rides on the first
+    phoneme and the rest of the word follows inside the same unit. Splitting
+    between IH<250,24> and N would break the word across two utterances, which
+    is audible. So whitespace is the only word boundary.
     """
-    def dur(t):
-        m = re.search(r'<(\d+)', t)
-        return int(m.group(1)) if m else 0
+    return re.sub(r'\s+', ' ', body).strip().split()
+
+def subdivide(word, budget):
+    """Last resort for a word longer than one utterance can hold.
+
+    Some song files carry no whitespace at all - the entire song is a single
+    "word" of several hundred characters - so there is nothing to split on but
+    the phoneme tokens themselves. Only used when a word will not fit.
+    """
+    toks = re.findall(r'[^\s<]*?<\d+(?:,\d+)?>|\S+?(?=[A-Z]*<|$)', word)
+    toks = [t for t in toks if t]
+    out, cur, n = [], [], 0
+    for t in toks:
+        if cur and n + len(t) > budget:
+            out.append(''.join(cur)); cur, n = [], 0
+        cur.append(t); n += len(t)
+    if cur: out.append(''.join(cur))
+    return out or [word]
+
+def split_run(words, budget, window=0.55):
+    """Group words into utterances.
+
+    The budget is a hard ceiling. Within it, break after the word carrying the
+    longest duration - a long note usually ends a sung phrase, so the seam falls
+    where a singer would breathe. Words are never split; a word too long to fit
+    is subdivided first, and only then as a last resort.
+    """
+    def dur(w):
+        return max((int(x) for x in re.findall(r'<(\d+)', w)), default=0)
+
+    # any word that cannot fit becomes several
+    flat = []
+    for w in words:
+        flat.extend(subdivide(w, budget) if len(w) > budget else [w])
 
     out, i = [], 0
-    while i < len(tokens):
-        # how many tokens fit?
+    while i < len(flat):
         n, j = 0, i
-        while j < len(tokens):
-            w = len(tokens[j]) + (1 if j > i else 0)
-            if n + w > budget:
+        while j < len(flat):
+            k = len(flat[j]) + (1 if j > i else 0)
+            if n + k > budget:
                 break
-            n += w; j += 1
-        if j >= len(tokens):
-            out.append(tokens[i:]); break
-        if j == i:                      # single oversized token, emit it alone
-            out.append([tokens[i]]); i += 1; continue
-        # candidate break points: after any token in the tail of the window
-        lo = i + max(1, int((j - i) * window))
-        best = max(range(lo, j), key=lambda k: (dur(tokens[k]), k))
-        out.append(tokens[i:best + 1])
+            n += k; j += 1
+        if j >= len(flat):
+            out.append(flat[i:]); break
+        if j == i:
+            out.append([flat[i]]); i += 1; continue
+        # keep at least one candidate: lo must stay below j
+        lo = min(i + max(1, int((j - i) * window)), j - 1)
+        best = max(range(lo, j), key=lambda k: (dur(flat[k]), k))
+        out.append(flat[i:best + 1])
         i = best + 1
     return out
 
