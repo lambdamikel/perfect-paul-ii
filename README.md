@@ -44,6 +44,9 @@ awaiting fabrication.
   - [Selecting between the PAM and the MAX98357A outputs](#selecting-between-the-pam-and-the-max98357a-outputs)
   - [The gain selector](#the-gain-selector)
 - [Demo programs](#demo-programs)
+  - [The VCF West 2025 demos](#the-vcf-west-2025-demos)
+  - [Pacing, and why these need it](#pacing-and-why-these-need-it)
+  - [Rebuilding the disk image](#rebuilding-the-disk-image)
   - [Changing the slot](#changing-the-slot)
   - [Nothing to change in the firmware](#nothing-to-change-in-the-firmware)
   - [Inline command gotcha](#inline-command-gotcha)
@@ -993,11 +996,21 @@ In [`basic/`](basic/), all verified on hardware. Renderings of what they should
 sound like are in [`audio/`](audio/), produced from the DECtalk native build so
 you can listen without an Apple II.
 
+The listings here are the source of record. This repository does not ship a
+built disk image - `.gitignore` excludes `.dsk`, `.po` and `.2mg`, since a
+bootable ProDOS disk would carry Apple's `PRODOS.SYS` and `BASIC.SYSTEM` along
+with it. Build your own in one command per program; see
+[Rebuilding the disk image](#rebuilding-the-disk-image) below.
+
 | Program | What it does |
 |---|---|
 | `SPEAK.bas` / `APPLESPEECH.bas` / `PERFPAUL.bas` | Type a line, hear it spoken |
 | `DAISY.bas` | Sings *Daisy Bell* in phoneme mode, ~23 s |
 | `ELIZA.bas` | A talking Weizenbaum-style therapist |
+| `SINGCOMP.bas` | Nine voices hold a singing competition, then argue about it |
+| `YELSUB.bas` | Sings *Yellow Submarine*, 59 s of music in 23 phrases |
+| `VOICES.bas` | A sung four-part greeting, then all nine voices introduce themselves |
+| `HAL.bas` | Paul reshaped into HAL 9000 |
 
 `DAISY` uses `[:phone arpa speak on]` with explicit `<duration,pitch>` on each
 phoneme. The arrangement comes from the author's own `sing_daisy()` in
@@ -1008,6 +1021,96 @@ MIDI note *n*+35, so n=10 is A2 at 110 Hz if you want to transpose it.
 fallbacks, and speaks every reply. It reads input with `GET` rather than
 `INPUT`, because `INPUT` splits on commas and prints `EXTRA IGNORED` the moment
 anyone types one.
+
+### The VCF West 2025 demos
+
+`SINGCOMP`, `YELSUB`, `VOICES` and `HAL` are translated from the **DECtalk
+DTC01 demos** on the Talker/80 Model III disk shown at VCF West 2025, in
+[Talker-80](https://github.com/lambdamikel/Talker-80). Those demos drive a real
+DTC01 over a serial port; the TRS-80 side is a loop that pushes the bytes of a
+text file out through `USR` calls. The transport has nothing in common with a
+`POKE` to a slot register, but **the DECtalk payload is identical**, which is
+what makes them portable at all.
+
+The Talker/80 demos on the same disk are *not* portable. Those drive the
+Talker/80's own SP0256-style hardware, which shares no command language with
+DECtalk.
+
+Two things had to change beyond the transport:
+
+- `VOICES` used `[:nv]`, a user-defined voice this DECtalk build does not have,
+  which would have spoken an error. Dennis and Wendy replace that line - which
+  makes the count genuinely nine, where the original narration promised nine and
+  delivered eight.
+- `YELSUB` arrives as two bracketed groups of 39 s and 20 s. Both are far past
+  the 254-character limit on one utterance, so they are split at the `,<100,20>`
+  phrase markers into 23 utterances.
+
+### Pacing, and why these need it
+
+The card is write-only. There is no status register and no flow control, and its
+line queue holds **8 utterances**. When that queue fills, the firmware blocks
+core 0, which stops draining the bus FIFO, and further writes are **silently
+dropped** - you hear speech garble rather than an error.
+
+`DAISY` never hits this because it sends only five utterances. `SINGCOMP` sends
+23 and `YELSUB` 23, so both have to pace themselves. Each `DATA` item carries
+its own length in milliseconds, exact for sung phrases because the durations are
+in the notation:
+
+```basic
+2000  DATA "[IH<250,24>N DHAX<150,25> TAW<750,27>N ...]",2350
+```
+
+and the wait is
+
+```basic
+950 WT = MS * .9 * PF -  LEN (S$) * SD
+```
+
+`MS * .9` converts milliseconds to loop iterations, since about 900 empty
+Applesoft `FOR`/`NEXT` iterations take a second. The second term matters more
+than it looks: `POKE DR, ASC ( MID$ (S$,I,1))` over a 140-character phrase takes
+roughly half a second on a 1 MHz 6502, which was **63% of the gap** before it
+was accounted for.
+
+Two knobs, both at the top of each program:
+
+| | Default | Raise it if | Lower it if |
+|---|---|---|---|
+| `PF` | `.9` | speech garbles | you want it tighter still |
+| `SD` | `3` | long phrases lag but short ones do not | long phrases run ahead |
+
+`PF = .9` deliberately runs slightly *ahead* of real time, letting the 8-deep
+queue absorb the lead so phrases play back to back. That turns the queue from a
+hazard into the thing that makes singing gapless. `.8` still only reaches about
+4 utterances deep; `.7` gets close to filling it and risks dropped characters.
+
+`SD` is an estimate of the Applesoft send loop, not a measurement, so it is the
+one to reach for if the gap scales with phrase length.
+
+### Rebuilding the disk image
+
+[AppleCommander](https://github.com/AppleCommander/AppleCommander) imports a
+listing as tokenized Applesoft:
+
+```bash
+java -jar AppleCommander-ac.jar -bas disk/perfect-paul.dsk SINGCOMP < basic/SINGCOMP.bas
+```
+
+**Never leave a bare `REM` line in a listing you import.** AppleCommander's
+tokenizer makes it swallow the following line, so
+
+```
+140  REM
+150 DR =  - 16192
+```
+
+becomes one comment, `DR` is never assigned, and every `POKE DR,...` goes to
+zero page. It looks exactly like a dead card. Verify any import by exporting it
+again with `-e` and diffing the quoted literals; the detokenizer reformats
+numbers (`.9` prints as `0.9`, `-16192` as `- 16192`), so compare literals
+rather than whole lines.
 
 ### Changing the slot
 
