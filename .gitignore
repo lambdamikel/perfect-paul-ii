@@ -6,3 +6,6 @@ build/
 *.dsk
 *.po
 *.2mg
+
+# ...but the released demo disk is tracked
+!disk/*.dsk

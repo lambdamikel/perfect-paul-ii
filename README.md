@@ -996,11 +996,14 @@ In [`basic/`](basic/), all verified on hardware. Renderings of what they should
 sound like are in [`audio/`](audio/), produced from the DECtalk native build so
 you can listen without an Apple II.
 
-The listings here are the source of record. This repository does not ship a
-built disk image - `.gitignore` excludes `.dsk`, `.po` and `.2mg`, since a
-bootable ProDOS disk would carry Apple's `PRODOS.SYS` and `BASIC.SYSTEM` along
-with it. Build your own in one command per program; see
-[Rebuilding the disk image](#rebuilding-the-disk-image) below.
+A ready-to-boot 140 KB image with all of them installed is in
+[`disk/perfect-paul.dsk`](disk/perfect-paul.dsk) - boot it and `RUN` any of the
+names below. It is a **ProDOS** disk, so it carries Apple's `PRODOS.SYS` and
+`BASIC.SYSTEM` alongside the programs; those are Apple's, are not covered by
+this repository's licence, and are there only to make the disk bootable. The
+listings in [`basic/`](basic/) are the source of record, and
+[Rebuilding the disk image](#rebuilding-the-disk-image) below shows how to
+regenerate the disk from them.
 
 | Program | What it does |
 |---|---|
