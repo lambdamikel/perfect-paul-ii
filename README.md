@@ -46,7 +46,8 @@ awaiting fabrication.
 - [Demo programs](#demo-programs)
   - [The VCF West 2025 demos](#the-vcf-west-2025-demos)
   - [Pacing, and why these need it](#pacing-and-why-these-need-it)
-  - [Translating more songs](#translating-more-songs)
+  - [Adding a song to the disk](#adding-a-song-to-the-disk)
+  - [What the translator handles](#what-the-translator-handles)
   - [A note on what to translate](#a-note-on-what-to-translate)
   - [Rebuilding the disk image](#rebuilding-the-disk-image)
   - [Changing the slot](#changing-the-slot)
@@ -1109,15 +1110,39 @@ hazard into the thing that makes singing gapless. `.8` still only reaches about
 `SD` is an estimate of the Applesoft send loop, not a measurement, so it is the
 one to reach for if the gap scales with phrase length.
 
-### Translating more songs
+### Adding a song to the disk
 
-[`tools/dt2applesoft.py`](tools/dt2applesoft.py) turns a DECtalk song file into
-a paced Applesoft listing, so you do not have to redo any of this by hand:
+End to end, a DECtalk song file becomes a program on the disk in three steps.
+`ANGELS` is used throughout as the example; substitute your own name, up to 15
+characters, letters and digits, starting with a letter.
 
 ```bash
-tools/dt2applesoft.py SONG.TXT --title "AWAY IN A MANGER" \
-    --credit "traditional, public domain" > basic/MANGER.bas
+# 1. translate: DECtalk song file -> paced Applesoft listing
+tools/dt2applesoft.py "ANGELS WE HAVE HEARD ON HIGH.txt" \
+    --title "ANGELS WE HAVE HEARD ON HIGH" \
+    --credit "traditional, public domain" > basic/ANGELS.bas
+
+# 2. import: listing -> tokenized Applesoft on the disk
+java -jar AppleCommander-ac.jar -bas disk/perfect-paul.dsk ANGELS < basic/ANGELS.bas
+
+# 3. verify: read it back and confirm nothing was mangled
+java -jar AppleCommander-ac.jar -l disk/perfect-paul.dsk | grep ANGELS
+java -jar AppleCommander-ac.jar -e disk/perfect-paul.dsk ANGELS | diff - basic/ANGELS.bas
 ```
+
+**Do not skip step 3.** The `diff` will show cosmetic reformatting from the
+detokenizer - `.9` prints as `0.9`, `-16192` as `- 16192`, spacing shifts - so
+what you are looking for is a *line going missing*, which is what the bare-`REM`
+bug does. See [Rebuilding the disk image](#rebuilding-the-disk-image).
+
+Then `RUN ANGELS` from the `]` prompt. On real hardware the disk image also has
+to reach the machine, which on a Floppy Emu means copying it to the SD card as
+well - editing the image in place is not enough.
+
+### What the translator handles
+
+[`tools/dt2applesoft.py`](tools/dt2applesoft.py) exists so none of this has to
+be redone by hand.
 
 It handles the parts that are easy to get wrong:
 
