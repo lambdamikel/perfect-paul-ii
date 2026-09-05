@@ -26,18 +26,40 @@ def tokenize(body):
     """Split a phoneme run into whole tokens: NAME<dur[,pitch]>, or bare text."""
     return re.findall(r'[^\s<]*?<\d+(?:,\d+)?>|\S+', body)
 
-def split_run(tokens, budget):
-    """Group tokens into utterances. Prefer to break before a token carrying an
-    explicit pitch - the start of a note, never mid-syllable - but the budget is
-    a hard limit, because a long stretch may contain no pitched token at all."""
-    out, cur, n = [], [], 0
-    for t in tokens:
-        w = len(t) + (1 if cur else 0)
-        starts_note = bool(re.search(r'<\d+,\d+>', t))
-        if cur and (n + w > budget or (starts_note and n > budget * 0.75)):
-            out.append(cur); cur, n, w = [], 0, len(t)
-        cur.append(t); n += w
-    if cur: out.append(cur)
+def split_run(tokens, budget, window=0.55):
+    """Group tokens into utterances.
+
+    The budget is a hard ceiling, but *where* inside it we break decides how the
+    result sounds. A file with rests tells us where the phrases end; many do not,
+    and then the seam lands wherever the character count happens to run out,
+    which is as likely to be mid-word as not.
+
+    Heuristic: among the break points in the last `window` of a full chunk,
+    break after the token carrying the longest duration. A long note is usually
+    the end of a sung phrase, so the seam falls where a singer would breathe.
+    """
+    def dur(t):
+        m = re.search(r'<(\d+)', t)
+        return int(m.group(1)) if m else 0
+
+    out, i = [], 0
+    while i < len(tokens):
+        # how many tokens fit?
+        n, j = 0, i
+        while j < len(tokens):
+            w = len(tokens[j]) + (1 if j > i else 0)
+            if n + w > budget:
+                break
+            n += w; j += 1
+        if j >= len(tokens):
+            out.append(tokens[i:]); break
+        if j == i:                      # single oversized token, emit it alone
+            out.append([tokens[i]]); i += 1; continue
+        # candidate break points: after any token in the tail of the window
+        lo = i + max(1, int((j - i) * window))
+        best = max(range(lo, j), key=lambda k: (dur(tokens[k]), k))
+        out.append(tokens[i:best + 1])
+        i = best + 1
     return out
 
 def ms_of(s):
