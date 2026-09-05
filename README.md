@@ -46,6 +46,7 @@ awaiting fabrication.
 - [Demo programs](#demo-programs)
   - [The VCF West 2025 demos](#the-vcf-west-2025-demos)
   - [Pacing, and why these need it](#pacing-and-why-these-need-it)
+  - [Getting a demo off a TRS-80 disk](#getting-a-demo-off-a-trs-80-disk)
   - [Adding a song to the disk](#adding-a-song-to-the-disk)
   - [What the translator handles](#what-the-translator-handles)
   - [A note on what to translate](#a-note-on-what-to-translate)
@@ -1110,6 +1111,27 @@ hazard into the thing that makes singing gapless. `.8` still only reaches about
 `SD` is an estimate of the Applesoft send loop, not a measurement, so it is the
 one to reach for if the gap scales with phrase length.
 
+### Getting a demo off a TRS-80 disk
+
+The DTC01 demos started life on a Model III floppy.
+[`tools/trs80-extract.py`](tools/trs80-extract.py) reads a JV3 image, lists its
+TRSDOS directory, and pulls files out - detokenizing Level II BASIC on the way:
+
+```bash
+tools/trs80-extract.py VOICDEMO.jv3 --list
+tools/trs80-extract.py VOICDEMO.jv3 --cat 'SINGCOMP/TXT'            # a text file
+tools/trs80-extract.py VOICDEMO.jv3 --cat 'SEND FILE' --detok       # a BASIC program
+tools/trs80-extract.py VOICDEMO.jv3 --raw > flat.img                # ordered sectors
+```
+
+Extraction is a content scan over the ordered sector image rather than a walk of
+TRSDOS granule chains, which is enough for the contiguous files these demo disks
+use. One wrinkle it handles for you: a search string often appears **twice** -
+once inside a tokenized BASIC program and once in the standalone data file - so
+for a text extract it takes whichever occurrence yields the longest clean run,
+and stops at the first non-text byte rather than running on into the rest of the
+disk.
+
 ### Adding a song to the disk
 
 End to end, a DECtalk song file becomes a program on the disk in three steps.
@@ -1140,6 +1162,12 @@ to reach the machine, which on a Floppy Emu means copying it to the SD card as
 well - editing the image in place is not enough.
 
 ### What the translator handles
+
+Together with `trs80-extract.py` above, these two cover the whole path from a
+TRS-80 floppy to a program on an Apple II disk. **AppleCommander is the one
+piece not vendored here** - it is a separate GPL project with its own releases,
+linked below.
+
 
 [`tools/dt2applesoft.py`](tools/dt2applesoft.py) exists so none of this has to
 be redone by hand.
