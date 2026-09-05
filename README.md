@@ -46,6 +46,8 @@ awaiting fabrication.
 - [Demo programs](#demo-programs)
   - [The VCF West 2025 demos](#the-vcf-west-2025-demos)
   - [Pacing, and why these need it](#pacing-and-why-these-need-it)
+  - [Translating more songs](#translating-more-songs)
+  - [A note on what to translate](#a-note-on-what-to-translate)
   - [Rebuilding the disk image](#rebuilding-the-disk-image)
   - [Changing the slot](#changing-the-slot)
   - [Nothing to change in the firmware](#nothing-to-change-in-the-firmware)
@@ -1014,6 +1016,9 @@ regenerate the disk from them.
 | `YELSUB.bas` | Sings *Yellow Submarine*, 59 s of music in 23 phrases |
 | `VOICES.bas` | A sung four-part greeting, then all nine voices introduce themselves |
 | `HAL.bas` | Paul reshaped into HAL 9000 |
+| `MANGER.bas` | *Away in a Manger*, 58 s |
+| `ANGELS.bas` | *Angels We Have Heard on High*, 35 s |
+| `BLOWMAN.bas` | *Blow the Man Down*, 14 s |
 
 `DAISY` uses `[:phone arpa speak on]` with explicit `<duration,pitch>` on each
 phoneme. The arrangement comes from the author's own `sing_daisy()` in
@@ -1103,6 +1108,47 @@ hazard into the thing that makes singing gapless. `.8` still only reaches about
 
 `SD` is an estimate of the Applesoft send loop, not a measurement, so it is the
 one to reach for if the gap scales with phrase length.
+
+### Translating more songs
+
+[`tools/dt2applesoft.py`](tools/dt2applesoft.py) turns a DECtalk song file into
+a paced Applesoft listing, so you do not have to redo any of this by hand:
+
+```bash
+tools/dt2applesoft.py SONG.TXT --title "AWAY IN A MANGER" \
+    --credit "traditional, public domain" > basic/MANGER.bas
+```
+
+It handles the parts that are easy to get wrong:
+
+- **Splitting.** A song often arrives as one bracketed group of several hundred
+  characters; the firmware truncates an utterance at 254 and Applesoft will not
+  accept a line over 239. The splitter breaks at note boundaries - before a
+  token carrying an explicit pitch, never mid-syllable - and treats both
+  ceilings as hard limits, since a long stretch may contain no pitched token at
+  all.
+- **Timing.** Each utterance's length is summed from its `<duration>` fields and
+  written into the `DATA` line, so the pacing is derived rather than guessed.
+- **Voices.** Some files ask for `[:nv]`, a user-defined voice this build does
+  not have and which would speak an error. The tool substitutes a real one and
+  records the substitution in a `REM`.
+- **Command spelling.** Files in the wild use `[:phone on]`,
+  `[:phoneme arpabet on]` and other variants; all are normalised to
+  `[:phone arpa speak on]`, the spelling `DAISY` proved on hardware.
+- **`[:dv]` voice shaping** is dropped unless you pass `--keep-dv`, because
+  support for it here is unverified and an unrecognised command is *spoken*
+  rather than ignored.
+
+It refuses to emit rather than produce a listing that would fail: over-long
+lines, over-long utterances, or a bare `REM` line.
+
+### A note on what to translate
+
+The three carols above are traditional and long out of copyright, which is why
+they are here. Much of the DECtalk song archive is not - it is largely recent
+popular music, and a phoneme transcription is still the lyric. Translating
+whatever you like for your own disk is one thing; publishing it is another. The
+tool works on any input, and that choice is yours to make.
 
 ### Rebuilding the disk image
 
