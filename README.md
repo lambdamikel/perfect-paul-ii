@@ -1035,9 +1035,21 @@ text file out through `USR` calls. The transport has nothing in common with a
 `POKE` to a slot register, but **the DECtalk payload is identical**, which is
 what makes them portable at all.
 
-The Talker/80 demos on the same disk are *not* portable. Those drive the
-Talker/80's own SP0256-style hardware, which shares no command language with
-DECtalk.
+The Talker/80 demos on the same disk are *not* directly portable, but not
+because they use some other synthesiser family. Talker/80 drives an **Epson
+S1V30120**, which carries a **DECtalk version 5** image - the same part, and the
+same image, as the Emic 2. So both sides of that disk speak DECtalk. The gap is
+one of *version*, not of language.
+
+DECtalkMini is a different and older DECtalk generation; its `[:version]`
+response reports `4.99`, and its command set is closer to the DTC01's than to
+V5's. That is precisely why the DTC01 demos carried over with no command changes
+at all, while the Talker/80 demos assume V5-era syntax and would need adapting
+phrase by phrase.
+
+(If you have met Talker/80 or LambdaSpeak's SP0256-AL2 mode, note that is an
+*emulation* layered on DECtalk, not an SP0256 part. There is no SP0256 anywhere
+in this story.)
 
 Two things had to change beyond the transport:
 
