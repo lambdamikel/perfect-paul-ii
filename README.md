@@ -1178,15 +1178,19 @@ It handles the parts that are easy to get wrong:
   characters; the firmware truncates an utterance at 254 and Applesoft will not
   accept a line over 239. Both ceilings are hard limits.
 
-  *Where* inside the budget it breaks is what decides how the result sounds. A
-  file with rests says where its phrases end, but many have none, and then a
-  naive split lands the seam wherever the character count runs out - as likely
-  mid-word as not. So among the break points in the last 45% of a full chunk,
-  the splitter breaks after the token carrying the **longest duration**: a long
-  note usually ends a sung phrase, so the seam falls where a singer would
-  breathe. On the three carols here that lifted the mean note at a seam from
-  about 300 ms to about 730 ms, and on *Away in a Manger* the worst seam went
-  from 100 ms to 900 ms.
+  **Words are never split.** In this notation a word like `IH<250,24>N` is one
+  unit meaning "in" - the timing rides on the first phoneme and the rest of the
+  word follows inside the same unit - so whitespace is the only word boundary.
+  Breaking between `IH<250,24>` and `N` puts half a word in the next utterance,
+  which is plainly audible. Some files carry no whitespace at all, the whole
+  song being a single enormous word; only then does the splitter fall back to
+  cutting at phoneme tokens, because there is nothing else to cut at.
+
+  *Where* inside the budget it breaks decides how the rest sounds. Among the
+  break points in the last 45% of a full chunk it breaks after the word carrying
+  the **longest duration**: a long note usually ends a sung phrase, so the seam
+  falls where a singer would breathe. On the carols here that lifted the mean
+  note at a seam from about 300 ms to about 730 ms.
 - **Timing.** Each utterance's length is summed from its `<duration>` fields and
   written into the `DATA` line, so the pacing is derived rather than guessed.
 - **Voices.** Some files ask for `[:nv]`, a user-defined voice this build does
