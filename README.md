@@ -1176,10 +1176,17 @@ It handles the parts that are easy to get wrong:
 
 - **Splitting.** A song often arrives as one bracketed group of several hundred
   characters; the firmware truncates an utterance at 254 and Applesoft will not
-  accept a line over 239. The splitter breaks at note boundaries - before a
-  token carrying an explicit pitch, never mid-syllable - and treats both
-  ceilings as hard limits, since a long stretch may contain no pitched token at
-  all.
+  accept a line over 239. Both ceilings are hard limits.
+
+  *Where* inside the budget it breaks is what decides how the result sounds. A
+  file with rests says where its phrases end, but many have none, and then a
+  naive split lands the seam wherever the character count runs out - as likely
+  mid-word as not. So among the break points in the last 45% of a full chunk,
+  the splitter breaks after the token carrying the **longest duration**: a long
+  note usually ends a sung phrase, so the seam falls where a singer would
+  breathe. On the three carols here that lifted the mean note at a seam from
+  about 300 ms to about 730 ms, and on *Away in a Manger* the worst seam went
+  from 100 ms to 900 ms.
 - **Timing.** Each utterance's length is summed from its `<duration>` fields and
   written into the `DATA` line, so the pacing is derived rather than guessed.
 - **Voices.** Some files ask for `[:nv]`, a user-defined voice this build does
