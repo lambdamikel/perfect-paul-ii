@@ -14,8 +14,21 @@ itself out loud at power-up, and both audio paths — I2S through a MAX98357A
 and PWM through a PAM8403 — are on the board, selected with a jumper.
 **The Gerbers are published:** [`pcb/gerbers-v2.zip`](pcb/gerbers-v2.zip).
 
+## Latest News
+
+### September 14th 2026
+
+Perfect Paul ][ made the **Hackaday front page**:
+[*It's the speech synthesiser you wanted, for the computer you had*](https://hackaday.com/2026/09/14/its-the-speech-synthesiser-you-wanted-for-the-computer-you-had/),
+by Jenny List.
+
+<img src="images/hackaday-1.png" width="700" alt="Perfect Paul II on the Hackaday front page">
+
+<img src="images/hackaday-2.png" width="345" alt="The Hackaday article"> <img src="images/hackaday-3.png" width="345" alt="The Hackaday article, with the demo video">
+
 ## Contents
 
+- [Latest News](#latest-news)
 - [Watch it](#watch-it)
 - [Talking to it](#talking-to-it)
   - [Any slot works](#any-slot-works)
