@@ -16,6 +16,15 @@ and PWM through a PAM8403 — are on the board, selected with a jumper.
 
 ## Latest News
 
+### September 23rd 2026
+
+**Perfect Paul ][ meets S.A.M.** &mdash; a head-to-head with the 1982
+Software Automatic Mouth on the same Apple II, both speaking the same phrases:
+
+[![Perfect Paul II versus S.A.M. on the Apple II](https://i.ytimg.com/vi/PsvA-_zbLwo/hqdefault.jpg)](https://youtu.be/PsvA-_zbLwo)
+
+**[Battle of The Vintage Speech Synths: Perfect Paul \]\[ vs. S.A.M. on the Apple II &mdash; Two Legends Meet!](https://youtu.be/PsvA-_zbLwo)**
+
 ### September 14th 2026
 
 Perfect Paul ][ made the **Hackaday front page**:
