@@ -1,5 +1,46 @@
 # Perfect Paul ][ - changelog
 
+## SP0256-AL2 alternative firmware
+
+Added `sp0256/`: a second, independent firmware for the same card, replacing
+DECtalk with an emulated General Instrument SP0256-AL2 (the Echo ][, Cricket
+and SSA-1 chip) built from its mask ROM by LPC synthesis.
+
+- **Separate CMake project, for a licensing reason.** The SP0256 core is GPL-3
+  and DECtalk is proprietary; one binary holding both could not be distributed
+  by anyone, because GPL-3 requires complete corresponding source for the whole
+  work. The SP0256 build needs no DECtalkMini checkout and is the first
+  Perfect Paul ][ firmware whose UF2 can be shipped.
+- **Two line modes, selected by a sticky byte.** `POKE SP,176` for English
+  text, `POKE SP,177` for allophones; the raw `$C0`+code channel works in
+  either. Text is the default, which makes this a drop-in for the DECtalk
+  firmware for any program that just POKEs a sentence.
+- **English text-to-speech in firmware** — NRL Report 7948 (1976) rules,
+  written from the report rather than lifted from the 1985 Amstrad binary,
+  plus a 23-word exception table re-measured against this fuller ruleset.
+  Seventeen of the 35 entries inherited from the CPC Vector Head project
+  proved unnecessary or harmful and were dropped.
+- **Reuses the MIT PIO program, `init_audio()` and the PWM clocking verbatim**,
+  so the bus and audio paths are the proven ones. 11025 Hz, 71-sample buffers.
+- **4096-allophone stage** in place of the real chip's LRQ/SBY handshake, which
+  this write-only slot interface cannot offer.
+- **Host verification**: `sp0256/host/pp2_render` runs the firmware's own
+  protocol code and renders byte-identical audio to LambdaSpeak 4's
+  independently validated renderer; `nrl_test -x` confirms the rules reproduce
+  the NRL's *documented* errors, which is the real proof it is that ruleset.
+- **`perfectpaul2_sp0256_selftest.uf2`**, a standalone bring-up test and demo:
+  speaks an eight-item script in a loop, including the same sentence by rule
+  and then by hand and a tour of all 64 allophones, needing no Apple II. It
+  compiles the firmware's own `pp2_audio.c` rather than a copy, so it vouches
+  for the audio path the firmware actually uses, and it paces itself by
+  counting audio buffers instead of timing delays.
+- **`SP0256.dsk`**, a bootable ProDOS demo disk: `SP.HELLO`, `SP.TALK`,
+  `SP.TYPE`, `SP.SWEEP`, `SP.PHRASES` and `SP.ELIZA`. Also added to
+  `DAISY.dsk`. Listings are `apple2_sp_*.bas`.
+
+Nothing in this firmware has run on hardware yet.
+
+
 ## Revision 3c - I2S working, spoken ready message
 
 - **`dectalk_selftest` now follows `DECTALK_AUDIO_I2S` instead of always being

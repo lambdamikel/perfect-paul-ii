@@ -16,6 +16,23 @@ and PWM through a PAM8403 — are on the board, selected with a jumper.
 
 ## Latest News
 
+### October 14th 2026
+
+**A second voice: the card now also runs an emulated SP0256-AL2.** Same board,
+same slot interface, a different `.uf2` — and it speaks **English text**,
+converted in firmware by the 1976 Naval Research Laboratory letter-to-sound
+rules, as well as allophones. See
+[The SP0256-AL2 firmware](#the-sp0256-al2-firmware).
+
+It is also **the first Perfect Paul ][ firmware that can be distributed**:
+unlike DECtalk it is GPL-3 throughout, so [`firmware/`](firmware/) holds ready
+UF2s you can simply flash. Working on real hardware, with `SP.ELIZA` talking
+back through a chip that was discontinued decades ago.
+
+Bringing it up found a deadlock in the upstream SP0256 emulation that silenced
+the card after its first sentence; fixed, with the reproducer, and sent
+upstream as [GmEsoft/SP0256_CTS256A-AL2#8](https://github.com/GmEsoft/SP0256_CTS256A-AL2/pull/8).
+
 ### September 23rd 2026
 
 **Perfect Paul ][ meets S.A.M.** &mdash; a head-to-head with the 1982
@@ -74,6 +91,16 @@ by Jenny List.
   - [Changing the slot](#changing-the-slot)
   - [Nothing to change in the firmware](#nothing-to-change-in-the-firmware)
   - [Inline command gotcha](#inline-command-gotcha)
+- [The SP0256-AL2 firmware](#the-sp0256-al2-firmware)
+  - [Why it is a separate build, and why it can be shipped](#why-it-is-a-separate-build-and-why-it-can-be-shipped)
+  - [Flashing it](#flashing-it)
+  - [Talking to it](#talking-to-it-1)
+  - [Text to speech](#text-to-speech)
+  - [The demo disk](#the-demo-disk)
+  - [The self test](#the-self-test)
+  - [Testing it without hardware](#testing-it-without-hardware)
+  - [The bug that cost an evening](#the-bug-that-cost-an-evening)
+  - [Known limits](#known-limits)
 - [Assembly and first power-up](#assembly-and-first-power-up)
 - [Validation status](#validation-status)
   - [Software exercised on the card](#software-exercised-on-the-card)
@@ -890,6 +917,239 @@ visibly, it just adds speech. Comparing two renders that both contain the error
 will never reveal it. Render with the native `say` build and compare duration
 against a known-good baseline instead.
 
+## The SP0256-AL2 firmware
+
+An **alternative firmware for the same card**. Flash
+[`firmware/perfectpaul2-sp0256-i2s.uf2`](firmware/) instead of the DECtalk
+build and the Apple II gains a **General Instrument SP0256-AL2** — the chip in
+the **Echo ][**, the Street Electronics **Cricket**, the Amstrad **SSA-1** and
+the Radio Shack speech module — emulated by LPC synthesis from its own mask
+ROM, not played back from samples.
+
+No hardware change. Same slot interface, same 74LVC245, same audio stage, same
+stop byte. The card cannot tell which firmware it is running.
+
+It speaks two ways:
+
+* **English text**, converted in firmware by the **NRL letter-to-sound rules**
+  (NRL Report 7948, 1976). POKE a sentence, hear a sentence.
+* **Allophones**, by name (`HH1 EH LL OW`) or by number — the authentic SP0256
+  interface, and what every 1980s allophone listing is written in.
+
+Source and full documentation: [`pico-apple2/sp0256/`](pico-apple2/sp0256/).
+
+### Why it is a separate build, and why it can be shipped
+
+The SP0256 core is **GPL-3**. The DECtalk core carries affirmative proprietary
+notices from DEC, Fonix and Force. A single binary holding both could not be
+distributed **by anybody**, because GPL-3 requires complete corresponding
+source for the whole work and that source cannot be given for DECtalk.
+
+So two executables is not a convenience, it is the only lawful arrangement —
+and it has an upside. This repository has never been able to publish a
+firmware binary. **This one it can**, source and `.uf2` together, under GPL-3.
+It needs no DECtalkMini checkout at all; everything it compiles is in
+`pico-apple2/sp0256/`.
+
+### Flashing it
+
+| file | |
+|---|---|
+| `firmware/perfectpaul2-sp0256-i2s.uf2` | the card firmware, I2S audio (GP20/21/22) |
+| `firmware/perfectpaul2-sp0256-pwm.uf2` | the card firmware, PWM audio (GP28) |
+| `firmware/perfectpaul2-sp0256-selftest-i2s.uf2` | self test, I2S — needs no Apple II |
+| `firmware/perfectpaul2-sp0256-selftest-pwm.uf2` | self test, PWM |
+
+Hold `BOOTSEL`, connect USB, copy the file to the RP2 volume. Pick the one
+matching the audio stage you built — an image for the other backend is silent
+by construction.
+
+### Talking to it
+
+One write register, as before. `SP = -16192` for slot 4, or
+`SP = -16256 + 16 * SL`.
+
+| byte | meaning | BASIC |
+|---|---|---|
+| `$B0` 176 | **English text** mode for every line from now on (the default) | `POKE SP,176` |
+| `$B1` 177 | **allophone** mode for every line from now on | `POKE SP,177` |
+| `$20`–`$7E` | text, buffered | `POKE SP,ASC(C$)` |
+| `$0D` 13 | speak the buffered line | `POKE SP,13` |
+| `$C0`–`$FF` | **one raw allophone**, code = byte AND 63, spoken at once | `POKE SP,192+A` |
+| `$03`, `$90` 144 | immediate stop, queue dropped | `POKE SP,144` |
+
+The mode byte is **sticky, not first-byte-only**, so a program can narrate in
+English and drop into allophones for an effect without resetting the card. The
+raw `$C0` channel works in **either** mode, because it is a separate channel
+rather than a line — and it needs no CR, which is what a `POKE` loop over a
+`DATA` table wants:
+
+```basic
+10 SP = -16192
+20 POKE SP,176: REM ENGLISH
+30 A$ = "HELLO THERE": GOSUB 100
+40 POKE SP,177: REM ALLOPHONES
+50 A$ = "HH1 EH LL OW": GOSUB 100
+60 POKE SP,192+27: REM ONE ALLOPHONE, NO CR
+70 END
+100 FOR I = 1 TO LEN(A$): POKE SP,ASC(MID$(A$,I,1)): NEXT
+110 POKE SP,13: RETURN
+```
+
+English text is the default on purpose: it makes this a drop-in for the
+DECtalk firmware for any program that simply POKEs a sentence.
+`basic/SP.ELIZA.bas` is `basic/ELIZA.bas` with four lines changed, and three of
+those are comments — it only ever sent plain text.
+
+In allophone mode a line is space- or comma-separated tokens, each either one
+of the 64 datasheet mnemonics (any case) or a decimal number 0–63. Mixing is
+fine: `HH1 7 LL 53` is the same as `HH1 EH LL OW`.
+
+**There is no status register.** The slot interface is write-only — the PIO
+program captures writes and the card never drives the data bus — so unlike the
+real chip there is no LRQ or SBY to poll. Depth substitutes for flow control:
+**4096 allophones**, about five minutes, are buffered ahead of the chip.
+Applesoft pokes faster than the chip speaks, so a long unbroken passage can get
+roughly fifteen seconds ahead before it starts dropping; `SP.PHRASES` shows the
+pacing pattern.
+
+### Text to speech
+
+`pico-apple2/sp0256/nrl.c` implements NRL Report 7948, *Automatic Translation
+of English Text to Phonetic Codes* (Elovitz, Johnson, McHugh and Shore, 1976) —
+a US Government work. It is written from the report's own notation, not lifted
+from a binary: the version Amstrad shipped in 1985 as the SSA-1's `|SAY` is a
+self-relocating Z80 blob with no licence attached.
+
+Two stages. First letter-to-sound, producing ARPAbet: longest-match rules
+scanned by first letter, each with a left and right context in the report's
+classes. Then phoneme-to-allophone, which is where the chip's positional
+variants get chosen — `KK1`/`KK2`/`KK3`, `TT1`/`TT2`, and the vowel+r
+allophones. Three decisions in that second stage carry most of the
+intelligibility:
+
+* **The vowel+r allophones.** `OR` `AR` `YR` `XR` exist because /r/ after a
+  vowel is what the chip is worst at. They are used when the r **closes** the
+  syllable; an r between two vowels is the next syllable's onset and stays a
+  real `RR1`, or `VERY` comes out "vairy" and `SORRY` "sarry".
+* **A pause in front of every plosive**, or its burst is inaudible.
+* **Geminate collapse.** The exception table forces short vowels by doubling
+  the following consonant — `BIZZY`, `WIMMIN` — which also asks the chip to say
+  that consonant twice, and it audibly does.
+
+The 1976 rules have no dictionary, so a small table of respellings runs first.
+It began as the 35 words measured against the 1985 engine in
+[animated-speaking-cpc-vector-head](https://github.com/lambdamikel/animated-speaking-cpc-vector-head),
+then **seventeen of them turned out to be unnecessary or harmful** here,
+because that engine held a cut-down ruleset in 5170 bytes of Z80 and this is
+the full one. `HEAD BROUGHT SAID DOES MOTHER WHO GREAT BUILD THOUGHT THROUGH`
+the rules get right unaided. `ONCE WHERE PEOPLE AGAIN DIGITAL DIGITIZE
+DIGITIZED` the rules also get right and the respelling made **worse** — `WUNS`
+voices the final s to a z, `WAIR` loses the `WH`. `nrl.c` records the reasoning
+for every entry it keeps, and the five it adds.
+
+It will mispronounce things. That is the trade for fitting in a few kilobytes,
+and `host/nrl_test` plus the exception table are how a specific word gets fixed.
+
+### The demo disk
+
+[`disk/sp0256.dsk`](disk/) is a bootable 140K ProDOS disk, volume `/SP0256/`,
+that starts in a menu. Listings are in [`basic/`](basic/) as `SP.*.bas`.
+
+| program | |
+|---|---|
+| `SP.HELLO` | says hello three ways: names, raw POKEs, numbers. The smoke test |
+| `SP.TALK` | type English, hear English |
+| `SP.TYPE` | type allophones, hear allophones |
+| `SP.SWEEP` | all 64 allophones with name, datasheet example word and duration, paced so the screen keeps up |
+| `SP.PHRASES` | the same six sentences twice — hand-written allophones, then the rules |
+| `SP.ELIZA` | Weizenbaum 1966, out loud |
+
+The same programs are also on `disk/perfect-paul.dsk`, which has the room — but
+the two firmwares are mutually exclusive, so the dedicated disk is the one to
+reach for.
+
+### The self test
+
+The self test images need **no Apple II, no 74LVC245 and no slot traffic**.
+They speak an eight-item script in a loop and name each item on the USB
+console. **Flash one first on a new board** — if it is silent, the fault is in
+the audio path rather than the bus interface.
+
+Items 2 and 3 are the same sentence through the rules and then from allophones
+written by hand, which is the comparison worth hearing, and item 8 is every
+allophone the chip has, named as it sounds. That tour runs on the first pass
+only, so the loop afterwards settles to about twenty seconds of sentences.
+
+It compiles the firmware's **own** audio code rather than a copy, so a self
+test that makes a sound is a firmware that makes the same sound.
+
+### Testing it without hardware
+
+`pico-apple2/sp0256/host/` builds the firmware's own protocol and voice code on
+a PC, so a mistake shows up in a WAV rather than in a slot.
+
+```bash
+cd pico-apple2/sp0256/host && make
+./pp2_render -o hi.wav "HELLO THERE"       # English, the default mode
+./pp2_render -a -o hi.wav "HH1 EH LL OW"   # allophone mode
+./pp2_render -p 219,199,237,245            # raw POKEs, byte for byte
+./nrl_test HEAD LIVE BROUGHT               # what do the rules make of it
+./nrl_test -x HEAD LIVE BROUGHT            # without the exception table
+./run_tests.sh                             # the whole suite
+```
+
+`nrl_test -x` is the interesting one. A ruleset that gets `HEAD` and `HI` right
+with the exception table **off** is not the NRL ruleset: it is documented to
+read them as "heed" and "hih", and this implementation does. That, rather than
+sounding plausible, is the evidence the rules are the real ones.
+
+### The bug that cost an evening
+
+Worth recording, because the shape of it is more instructive than the fix.
+
+On hardware the card spoke its startup banner and then went **permanently
+silent**. The self test did the same: item 1, then nothing. Every host test
+passed. Sanitizers found nothing. The rule engine was briefly suspected and
+cleared — it queued its 30 allophones correctly on the Pico.
+
+Reading the chip's own state over USB gave it away:
+
+```
+hb item=1 wait=85 stage=0 chipq=29 lrq=0000 halted=1
+```
+
+29 allophones queued behind an ALD that could never be fetched.
+`sp0256_micro()`'s HALT branch parks the chip with `filt.rpt = 1`, and
+`sp0256_getNextSample()` returns early whenever `halted` is set **without
+running the filter**, so nothing ever decrements `rpt` again. Since `micro()`
+is gated on `rpt <= 0 && cnt <= 0`, it is never re-entered — so the *next*
+allophone written can never be picked up. One utterance works; everything after
+it is silence.
+
+The fix is three lines in `ivoice_wr()`, and the first utterance renders
+bit-identically before and after. Sent upstream as
+[GmEsoft/SP0256_CTS256A-AL2#8](https://github.com/GmEsoft/SP0256_CTS256A-AL2/pull/8).
+
+**The lesson is about the test harness, not the chip.** Both renderers — this
+one and LambdaSpeak 4's — queue every allophone up front and stop as soon as
+the chip goes idle. That is the natural way to write one, and it means neither
+ever asked the chip to speak **twice**. A bug behind that assumption was
+invisible to every test, on both projects, until real hardware spoke a second
+sentence. `host/second_utterance` now guards it, under the heading "the chip
+must speak more than once".
+
+### Known limits
+
+* **No status register.** No LRQ, no SBY, so nothing can ask whether the card
+  is still talking. Depth and pacing instead.
+* **A fixed pitch.** The SP0256-AL2 has no pitch control through the allophone
+  interface. It cannot sing, and no amount of rule work changes that — the
+  DECtalk firmware is the one that sings *Daisy*.
+* **`AH` and `AX` are one sound.** The AL2 has no distinct /ʌ/, so "up" and "a"
+  share a vowel.
+* **1976 rules, no dictionary.** They will get words wrong.
+
 ## Assembly and first power-up
 
 The final board passed all of these. Run them on any new build.
@@ -1084,6 +1344,15 @@ How it differs from revision 2:
   logic was valued as 74LS parts, and several passives had no value at all.
 
 ## Licensing
+
+**`pico-apple2/sp0256/` is GPL-3 and self-contained**, with its own `LICENSE`
+and `vendor/README-VENDOR.md`. It builds a separate executable containing no
+DECtalk at all, which is what makes the UF2s in `firmware/` distributable —
+GPL-3 obliges the distributor to provide complete corresponding source for the
+whole work, and that source is here. A binary linking both cores could not be
+shipped by anyone, which is why the two firmwares are two independent CMake
+projects that never share object code. See [`LICENSE-NOTE.md`](LICENSE-NOTE.md).
+
 
 **The files in this repository are MIT licensed** — see [LICENSE](LICENSE).
 That covers the firmware adapter, the PIO program, the build files, the PCB

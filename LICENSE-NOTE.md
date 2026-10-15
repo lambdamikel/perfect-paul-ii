@@ -30,3 +30,12 @@ permissive terms. Those component licenses do not relicense the DECtalk core.
 
 `LICENSE-ADAPTER.txt` applies only to the new Apple II/Pico adapter files in
 this directory.
+
+`sp0256/` is a different matter and is kept physically separate for that
+reason. It holds an emulation of the SP0256-AL2 under **GPL-3** (with its own
+`LICENSE` and `vendor/README-VENDOR.md`) and builds a **separate executable**
+that contains no DECtalk at all. That separation is required, not tidy: GPL-3
+obliges the distributor to provide complete corresponding source for the whole
+work, which cannot be done for the DECtalk core, so a single binary linking
+both would be undistributable by anybody. The two UF2s are built by two
+independent CMake projects and never share object code.

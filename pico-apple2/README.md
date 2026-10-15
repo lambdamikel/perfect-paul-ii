@@ -14,6 +14,23 @@ README at <https://github.com/lambdamikel/perfect-paul-ii>, which is the single
 source of truth for all of it. None of it is repeated here, so the two cannot
 drift apart.
 
+## An alternative firmware: SP0256-AL2
+
+[`sp0256/`](sp0256/) builds a **second, independent** UF2 for the same card
+that replaces DECtalk with an emulated **General Instrument SP0256-AL2** — the
+Echo ][ / Cricket / SSA-1 chip — and adds English text-to-speech in firmware
+via the 1976 NRL letter-to-sound rules. No hardware change.
+
+It is a separate CMake project for a licensing reason rather than a
+convenience: the SP0256 core is GPL-3, DECtalk is proprietary, and one binary
+holding both could not be distributed by anyone. Two executables can be, and
+**the SP0256 one is the first Perfect Paul ][ firmware whose UF2 is
+shippable.** It needs no DECtalkMini checkout. See
+[`sp0256/README.md`](sp0256/README.md).
+
+Demo disk: `SP0256.dsk`, listings `apple2_sp_*.bas`. The same programs are also
+on `DAISY.dsk`.
+
 ## Build
 
 Visual Studio Code can be the IDE, but Microsoft MSVC/Visual C++ does not
@@ -102,6 +119,6 @@ repository. Ctrl-C stops speech.
 
 ## Licensing
 
-`LICENSE-ADAPTER.txt` covers the adapter files in this directory. It does **not**
-cover the DECtalk core — read `LICENSE-NOTE.md` before redistributing source or
+`LICENSE-ADAPTER.txt` covers the MIT adapter files in this directory.
+`sp0256/` is GPL-3 and carries its own `LICENSE`. Neither covers the DECtalk core — read `LICENSE-NOTE.md` before redistributing source or
 any UF2 built from this tree.
