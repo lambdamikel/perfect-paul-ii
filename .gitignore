@@ -9,3 +9,10 @@ build/
 
 # ...but the released demo disk is tracked
 !disk/*.dsk
+
+# ...and the SP0256 firmware. Unlike the DECtalk build it is GPL-3 with its
+# complete corresponding source in this repository, so its binaries can be
+# distributed -- which is the whole point of shipping them. The pattern is
+# deliberately narrow: it cannot match a DECtalk build, so the blanket *.uf2
+# ignore above still protects against committing one by accident.
+!firmware/perfectpaul2-sp0256-*.uf2
