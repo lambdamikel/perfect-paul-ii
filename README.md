@@ -35,6 +35,8 @@ converted in firmware by the 1976 Naval Research Laboratory letter-to-sound
 rules, as well as allophones. See
 [The SP0256-AL2 firmware](#the-sp0256-al2-firmware).
 
+**[There is a video](https://youtu.be/zNYNel9VgRk).**
+
 It is also **the first Perfect Paul ][ firmware that can be distributed**:
 unlike DECtalk it is GPL-3 throughout, so [`firmware/`](firmware/) holds ready
 UF2s you can simply flash. Working on real hardware, with `SP.ELIZA` talking
@@ -123,10 +125,14 @@ by Jenny List.
 
 ## Watch it
 
-[![Perfect Paul II on real hardware](https://i.ytimg.com/vi/QXe7LpF3Q8w/hqdefault.jpg)](https://youtu.be/QXe7LpF3Q8w)
+[![Perfect Paul II speaking with the SP0256-AL2 firmware](https://i.ytimg.com/vi/zNYNel9VgRk/hqdefault.jpg)](https://youtu.be/zNYNel9VgRk)
 
-**[Perfect Paul II on real hardware](https://youtu.be/QXe7LpF3Q8w)** — the
-latest demo.
+**[Perfect Paul II with the SP0256-AL2 firmware](https://youtu.be/zNYNel9VgRk)**
+— the second voice: the emulated Echo ][ / SSA-1 chip, speaking English through
+the 1976 NRL letter-to-sound rules and in native allophone mode.
+
+Earlier: **[Perfect Paul II on real hardware](https://youtu.be/QXe7LpF3Q8w)** —
+the DECtalk firmware.
 
 Earlier: **[Perfect Paul II - A New Speech Synthesizer For The Apple II](https://youtu.be/u6aQdsFBBXw)**
 — the card talking, singing *Daisy Bell*, and running ELIZA.
